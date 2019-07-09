@@ -13,7 +13,6 @@ const ReactDOMServerIntegrationUtils = require('./utils/ReactDOMServerIntegratio
 
 let React;
 let ReactDOM;
-let ReactTestUtils;
 let ReactDOMServer;
 
 function initModules() {
@@ -22,13 +21,11 @@ function initModules() {
   React = require('react');
   ReactDOM = require('react-dom');
   ReactDOMServer = require('react-dom/server');
-  ReactTestUtils = require('react-dom/test-utils');
 
   // Make them available to the helpers.
   return {
     ReactDOM,
     ReactDOMServer,
-    ReactTestUtils,
   };
 }
 

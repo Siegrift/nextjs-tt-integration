@@ -51,7 +51,6 @@ export type PropertyInfo = {|
   +mustUseProperty: boolean,
   +propertyName: string,
   +type: PropertyType,
-  +sanitizeURL: boolean,
 |};
 
 /* eslint-disable max-len */
@@ -187,7 +186,6 @@ function PropertyInfoRecord(
   mustUseProperty: boolean,
   attributeName: string,
   attributeNamespace: string | null,
-  sanitizeURL: boolean,
 ) {
   this.acceptsBooleans =
     type === BOOLEANISH_STRING ||
@@ -198,7 +196,6 @@ function PropertyInfoRecord(
   this.mustUseProperty = mustUseProperty;
   this.propertyName = name;
   this.type = type;
-  this.sanitizeURL = sanitizeURL;
 }
 
 // When adding attributes to this list, be sure to also add them to
@@ -226,7 +223,6 @@ const properties = {};
     false, // mustUseProperty
     name, // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -244,7 +240,6 @@ const properties = {};
     false, // mustUseProperty
     attributeName, // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -258,7 +253,6 @@ const properties = {};
     false, // mustUseProperty
     name.toLowerCase(), // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -278,7 +272,6 @@ const properties = {};
     false, // mustUseProperty
     name, // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -294,7 +287,6 @@ const properties = {};
   'default',
   'defer',
   'disabled',
-  'disablePictureInPicture',
   'formNoValidate',
   'hidden',
   'loop',
@@ -316,7 +308,6 @@ const properties = {};
     false, // mustUseProperty
     name.toLowerCase(), // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -340,7 +331,6 @@ const properties = {};
     true, // mustUseProperty
     name, // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -360,7 +350,6 @@ const properties = {};
     false, // mustUseProperty
     name, // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -381,7 +370,6 @@ const properties = {};
     false, // mustUseProperty
     name, // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -393,7 +381,6 @@ const properties = {};
     false, // mustUseProperty
     name.toLowerCase(), // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -491,7 +478,6 @@ const capitalize = token => token[1].toUpperCase();
     false, // mustUseProperty
     attributeName,
     null, // attributeNamespace
-    false, // sanitizeURL
   );
 });
 
@@ -499,6 +485,7 @@ const capitalize = token => token[1].toUpperCase();
 [
   'xlink:actuate',
   'xlink:arcrole',
+  'xlink:href',
   'xlink:role',
   'xlink:show',
   'xlink:title',
@@ -515,7 +502,6 @@ const capitalize = token => token[1].toUpperCase();
     false, // mustUseProperty
     attributeName,
     'http://www.w3.org/1999/xlink',
-    false, // sanitizeURL
   );
 });
 
@@ -536,7 +522,6 @@ const capitalize = token => token[1].toUpperCase();
     false, // mustUseProperty
     attributeName,
     'http://www.w3.org/XML/1998/namespace',
-    false, // sanitizeURL
   );
 });
 
@@ -550,29 +535,5 @@ const capitalize = token => token[1].toUpperCase();
     false, // mustUseProperty
     attributeName.toLowerCase(), // attributeName
     null, // attributeNamespace
-    false, // sanitizeURL
-  );
-});
-
-// These attributes accept URLs. These must not allow javascript: URLS.
-// These will also need to accept Trusted Types object in the future.
-const xlinkHref = 'xlinkHref';
-properties[xlinkHref] = new PropertyInfoRecord(
-  'xlinkHref',
-  STRING,
-  false, // mustUseProperty
-  'xlink:href',
-  'http://www.w3.org/1999/xlink',
-  true, // sanitizeURL
-);
-
-['src', 'href', 'action', 'formAction'].forEach(attributeName => {
-  properties[attributeName] = new PropertyInfoRecord(
-    attributeName,
-    STRING,
-    false, // mustUseProperty
-    attributeName.toLowerCase(), // attributeName
-    null, // attributeNamespace
-    true, // sanitizeURL
   );
 });

@@ -20,5 +20,4 @@ module.exports = {
   roots: ['<rootDir>/packages', '<rootDir>/scripts'],
   collectCoverageFrom: ['packages/**/*.js'],
   timers: 'fake',
-  snapshotSerializers: [require.resolve('jest-snapshot-serializer-raw')],
 };

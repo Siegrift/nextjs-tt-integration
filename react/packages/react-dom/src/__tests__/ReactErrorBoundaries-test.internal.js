@@ -12,7 +12,6 @@
 let PropTypes;
 let React;
 let ReactDOM;
-let act;
 let ReactFeatureFlags;
 
 describe('ReactErrorBoundaries', () => {
@@ -45,7 +44,6 @@ describe('ReactErrorBoundaries', () => {
     ReactFeatureFlags.replayFailedUnitOfWorkWithInvokeGuardedCallback = false;
     ReactDOM = require('react-dom');
     React = require('react');
-    act = require('react-dom/test-utils').act;
 
     log = [];
 
@@ -644,39 +642,6 @@ describe('ReactErrorBoundaries', () => {
     expect(container3.firstChild).toBe(null);
   });
 
-  it('logs a single error when using error boundary', () => {
-    const container = document.createElement('div');
-    expect(() =>
-      ReactDOM.render(
-        <ErrorBoundary>
-          <BrokenRender />
-        </ErrorBoundary>,
-        container,
-      ),
-    ).toWarnDev('The above error occurred in the <BrokenRender> component:', {
-      logAllErrors: true,
-    });
-
-    expect(container.firstChild.textContent).toBe('Caught an error: Hello.');
-    expect(log).toEqual([
-      'ErrorBoundary constructor',
-      'ErrorBoundary componentWillMount',
-      'ErrorBoundary render success',
-      'BrokenRender constructor',
-      'BrokenRender componentWillMount',
-      'BrokenRender render [!]',
-      // Catch and render an error message
-      'ErrorBoundary static getDerivedStateFromError',
-      'ErrorBoundary componentWillMount',
-      'ErrorBoundary render error',
-      'ErrorBoundary componentDidMount',
-    ]);
-
-    log.length = 0;
-    ReactDOM.unmountComponentAtNode(container);
-    expect(log).toEqual(['ErrorBoundary componentWillUnmount']);
-  });
-
   it('renders an error state if child throws in render', () => {
     const container = document.createElement('div');
     ReactDOM.render(
@@ -801,23 +766,12 @@ describe('ReactErrorBoundaries', () => {
     };
 
     const container = document.createElement('div');
-    expect(() =>
-      ReactDOM.render(
-        <ErrorBoundary>
-          <BrokenComponentWillMountWithContext />
-        </ErrorBoundary>,
-        container,
-      ),
-    ).toWarnDev(
-      'Warning: The <BrokenComponentWillMountWithContext /> component appears to be a function component that ' +
-        'returns a class instance. ' +
-        'Change BrokenComponentWillMountWithContext to a class that extends React.Component instead. ' +
-        "If you can't use a class try assigning the prototype on the function as a workaround. " +
-        '`BrokenComponentWillMountWithContext.prototype = React.Component.prototype`. ' +
-        "Don't use an arrow function since it cannot be called with `new` by React.",
-      {withoutStack: true},
+    ReactDOM.render(
+      <ErrorBoundary>
+        <BrokenComponentWillMountWithContext />
+      </ErrorBoundary>,
+      container,
     );
-
     expect(container.firstChild.textContent).toBe('Caught an error: Hello.');
   });
 
@@ -1868,26 +1822,26 @@ describe('ReactErrorBoundaries', () => {
 
   it('catches errors in useEffect', () => {
     const container = document.createElement('div');
-    act(() => {
-      ReactDOM.render(
-        <ErrorBoundary>
-          <BrokenUseEffect>Initial value</BrokenUseEffect>
-        </ErrorBoundary>,
-        container,
-      );
-      expect(log).toEqual([
-        'ErrorBoundary constructor',
-        'ErrorBoundary componentWillMount',
-        'ErrorBoundary render success',
-        'BrokenUseEffect render',
-        'ErrorBoundary componentDidMount',
-      ]);
+    ReactDOM.render(
+      <ErrorBoundary>
+        <BrokenUseEffect>Initial value</BrokenUseEffect>
+      </ErrorBoundary>,
+      container,
+    );
+    expect(log).toEqual([
+      'ErrorBoundary constructor',
+      'ErrorBoundary componentWillMount',
+      'ErrorBoundary render success',
+      'BrokenUseEffect render',
+      'ErrorBoundary componentDidMount',
+    ]);
 
-      expect(container.firstChild.textContent).toBe('Initial value');
-      log.length = 0;
-    });
+    expect(container.firstChild.textContent).toBe('Initial value');
+    log.length = 0;
 
-    // verify flushed passive effects and handle the error
+    jest.runAllTimers();
+
+    // Flush passive effects and handle the error
     expect(log).toEqual([
       'BrokenUseEffect useEffect [!]',
       // Handle the error

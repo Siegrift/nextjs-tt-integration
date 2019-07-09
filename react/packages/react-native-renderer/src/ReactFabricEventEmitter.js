@@ -9,17 +9,12 @@
 
 import type {Fiber} from 'react-reconciler/src/ReactFiber';
 
-import {
-  getListener,
-  runExtractedPluginEventsInBatch,
-} from 'events/EventPluginHub';
+import {getListener, runExtractedEventsInBatch} from 'events/EventPluginHub';
 import {registrationNameModules} from 'events/EventPluginRegistry';
 import {batchedUpdates} from 'events/ReactGenericBatching';
 
 import type {AnyNativeEvent} from 'events/PluginModuleType';
-import {enableFlareAPI} from 'shared/ReactFeatureFlags';
 import type {TopLevelType} from 'events/TopLevelEventTypes';
-import {dispatchEventForResponderEventSystem} from './ReactFabricEventResponderSystem';
 
 export {getListener, registrationNameModules as registrationNames};
 
@@ -29,17 +24,8 @@ export function dispatchEvent(
   nativeEvent: AnyNativeEvent,
 ) {
   const targetFiber = (target: null | Fiber);
-  if (enableFlareAPI) {
-    // React Flare event system
-    dispatchEventForResponderEventSystem(
-      (topLevelType: any),
-      target,
-      (nativeEvent: any),
-    );
-  }
   batchedUpdates(function() {
-    // Heritage plugin event system
-    runExtractedPluginEventsInBatch(
+    runExtractedEventsInBatch(
       topLevelType,
       targetFiber,
       nativeEvent,

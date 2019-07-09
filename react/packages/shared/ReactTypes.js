@@ -13,8 +13,7 @@ export type ReactNode =
   | ReactText
   | ReactFragment
   | ReactProvider<any>
-  | ReactConsumer<any>
-  | ReactEventComponent<any, any>;
+  | ReactConsumer<any>;
 
 export type ReactEmpty = null | void | boolean;
 
@@ -79,38 +78,3 @@ export type ReactPortal = {
 export type RefObject = {|
   current: any,
 |};
-
-export type ReactEventComponentInstance<E, C> = {|
-  currentFiber: mixed,
-  isHook: boolean,
-  props: Object,
-  responder: ReactEventResponder<E, C>,
-  rootEventTypes: null | Set<string>,
-  rootInstance: null | mixed,
-  state: Object,
-|};
-
-export type ReactEventResponder<E, C> = {
-  displayName: string,
-  targetEventTypes?: Array<string>,
-  rootEventTypes?: Array<string>,
-  getInitialState?: (props: Object) => Object,
-  allowMultipleHostChildren: boolean,
-  allowEventHooks: boolean,
-  onEvent?: (event: E, context: C, props: Object, state: Object) => void,
-  onRootEvent?: (event: E, context: C, props: Object, state: Object) => void,
-  onMount?: (context: C, props: Object, state: Object) => void,
-  onUnmount?: (context: C, props: Object, state: Object) => void,
-  onOwnershipChange?: (context: C, props: Object, state: Object) => void,
-};
-
-export type ReactEventComponent<E, C> = {|
-  $$typeof: Symbol | number,
-  responder: ReactEventResponder<E, C>,
-|};
-
-export opaque type EventPriority = 0 | 1 | 2;
-
-export const DiscreteEvent: EventPriority = 0;
-export const UserBlockingEvent: EventPriority = 1;
-export const ContinuousEvent: EventPriority = 2;

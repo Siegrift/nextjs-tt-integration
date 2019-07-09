@@ -14,11 +14,10 @@ const ReactDOMServerIntegrationUtils = require('./utils/ReactDOMServerIntegratio
 let React;
 let ReactDOM;
 let ReactDOMServer;
-let ReactTestUtils;
 let forwardRef;
 let memo;
 let yieldedValues;
-let unstable_yieldValue;
+let yieldValue;
 let clearYields;
 
 function initModules() {
@@ -27,12 +26,11 @@ function initModules() {
   React = require('react');
   ReactDOM = require('react-dom');
   ReactDOMServer = require('react-dom/server');
-  ReactTestUtils = require('react-dom/test-utils');
   forwardRef = React.forwardRef;
   memo = React.memo;
 
   yieldedValues = [];
-  unstable_yieldValue = value => {
+  yieldValue = value => {
     yieldedValues.push(value);
   };
   clearYields = () => {
@@ -45,7 +43,6 @@ function initModules() {
   return {
     ReactDOM,
     ReactDOMServer,
-    ReactTestUtils,
   };
 }
 
@@ -76,9 +73,9 @@ describe('ReactDOMServerIntegration', () => {
 
   itRenders('a Profiler component and its children', async render => {
     const element = await render(
-      <React.Profiler id="profiler" onRender={jest.fn()}>
+      <React.unstable_Profiler id="profiler" onRender={jest.fn()}>
         <div>Test</div>
-      </React.Profiler>,
+      </React.unstable_Profiler>,
     );
     const parent = element.parentNode;
     const div = parent.childNodes[0];
@@ -92,7 +89,7 @@ describe('ReactDOMServerIntegration', () => {
     });
 
     function Text({text}) {
-      unstable_yieldValue(text);
+      yieldValue(text);
       return <span>{text}</span>;
     }
 
@@ -127,7 +124,7 @@ describe('ReactDOMServerIntegration', () => {
       'comparator functions are not invoked on the server',
       async render => {
         const MemoCounter = React.memo(Counter, (oldProps, newProps) => {
-          unstable_yieldValue(
+          yieldValue(
             `Old count: ${oldProps.count}, New count: ${newProps.count}`,
           );
           return oldProps.count === newProps.count;

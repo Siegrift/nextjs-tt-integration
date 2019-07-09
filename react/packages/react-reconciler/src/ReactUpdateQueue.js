@@ -86,7 +86,6 @@
 
 import type {Fiber} from './ReactFiber';
 import type {ExpirationTime} from './ReactFiberExpirationTime';
-import type {SuspenseConfig} from './ReactFiberSuspenseConfig';
 
 import {NoWork} from './ReactFiberExpirationTime';
 import {
@@ -102,14 +101,12 @@ import {
 } from 'shared/ReactFeatureFlags';
 
 import {StrictMode} from './ReactTypeOfMode';
-import {markRenderEventTimeAndConfig} from './ReactFiberWorkLoop';
 
 import invariant from 'shared/invariant';
 import warningWithoutStack from 'shared/warningWithoutStack';
 
 export type Update<State> = {
   expirationTime: ExpirationTime,
-  suspenseConfig: null | SuspenseConfig,
 
   tag: 0 | 1 | 2 | 3,
   payload: any,
@@ -193,13 +190,9 @@ function cloneUpdateQueue<State>(
   return queue;
 }
 
-export function createUpdate(
-  expirationTime: ExpirationTime,
-  suspenseConfig: null | SuspenseConfig,
-): Update<*> {
+export function createUpdate(expirationTime: ExpirationTime): Update<*> {
   return {
-    expirationTime,
-    suspenseConfig,
+    expirationTime: expirationTime,
 
     tag: UpdateState,
     payload: null,
@@ -461,17 +454,8 @@ export function processUpdateQueue<State>(
         newExpirationTime = updateExpirationTime;
       }
     } else {
-      // This update does have sufficient priority.
-
-      // Mark the event time of this update as relevant to this render pass.
-      // TODO: This should ideally use the true event time of this update rather than
-      // its priority which is a derived and not reverseable value.
-      // TODO: We should skip this update if it was already committed but currently
-      // we have no way of detecting the difference between a committed and suspended
-      // update here.
-      markRenderEventTimeAndConfig(updateExpirationTime, update.suspenseConfig);
-
-      // Process it and compute a new result.
+      // This update does have sufficient priority. Process it and compute
+      // a new result.
       resultState = getStateFromUpdate(
         workInProgress,
         queue,

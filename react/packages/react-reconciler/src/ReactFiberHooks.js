@@ -1,5 +1,5 @@
 /**
- * Copyright (c) Facebook, Inc. and its affiliates.
+ * Copyright (c) 2013-present, Facebook, Inc.
  *
  * This source code is licensed under the MIT license found in the
  * LICENSE file in the root directory of this source tree.
@@ -7,18 +7,16 @@
  * @flow
  */
 
-import type {ReactEventComponent, ReactContext} from 'shared/ReactTypes';
+import type {ReactContext} from 'shared/ReactTypes';
 import type {SideEffectTag} from 'shared/ReactSideEffectTags';
 import type {Fiber} from './ReactFiber';
 import type {ExpirationTime} from './ReactFiberExpirationTime';
 import type {HookEffectTag} from './ReactHookEffectTags';
-import type {SuspenseConfig} from './ReactFiberSuspenseConfig';
 
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 
 import {NoWork} from './ReactFiberExpirationTime';
 import {readContext} from './ReactFiberNewContext';
-import {updateEventComponentInstance} from './ReactFiberEvents';
 import {
   Update as UpdateEffect,
   Passive as PassiveEffect,
@@ -32,22 +30,17 @@ import {
 } from './ReactHookEffectTags';
 import {
   scheduleWork,
+  warnIfNotCurrentlyBatchingInDev,
   computeExpirationForFiber,
   flushPassiveEffects,
   requestCurrentTime,
-  warnIfNotCurrentlyActingEffectsInDEV,
-  warnIfNotCurrentlyActingUpdatesInDev,
-  warnIfNotScopedWithMatchingAct,
-  markRenderEventTimeAndConfig,
-} from './ReactFiberWorkLoop';
+} from './ReactFiberScheduler';
 
 import invariant from 'shared/invariant';
 import warning from 'shared/warning';
 import getComponentName from 'shared/getComponentName';
 import is from 'shared/objectIs';
 import {markWorkInProgressReceivedUpdate} from './ReactFiberBeginWork';
-import {revertPassiveEffectsChange} from 'shared/ReactFeatureFlags';
-import {requestCurrentSuspenseConfig} from './ReactFiberSuspenseConfig';
 
 const {ReactCurrentDispatcher} = ReactSharedInternals;
 
@@ -83,15 +76,10 @@ export type Dispatcher = {
     deps: Array<mixed> | void | null,
   ): void,
   useDebugValue<T>(value: T, formatterFn: ?(value: T) => mixed): void,
-  useEvent<E, C>(
-    eventComponent: ReactEventComponent<E, C>,
-    props: Object,
-  ): void,
 };
 
 type Update<S, A> = {
   expirationTime: ExpirationTime,
-  suspenseConfig: null | SuspenseConfig,
   action: A,
   eagerReducer: ((S, A) => S) | null,
   eagerState: S | null,
@@ -115,8 +103,7 @@ export type HookType =
   | 'useCallback'
   | 'useMemo'
   | 'useImperativeHandle'
-  | 'useDebugValue'
-  | 'useEvent';
+  | 'useDebugValue';
 
 let didWarnAboutMismatchedHooksForComponent;
 if (__DEV__) {
@@ -197,11 +184,6 @@ let currentHookNameInDev: ?HookType = null;
 let hookTypesDev: Array<HookType> | null = null;
 let hookTypesUpdateIndexDev: number = -1;
 
-// In DEV, this tracks whether currently rendering component needs to ignore
-// the dependencies for Hooks that need them (e.g. useEffect or useMemo).
-// When true, such Hooks will always be "remounted". Only used during hot reload.
-let ignorePreviousDependencies: boolean = false;
-
 function mountHookTypesDev() {
   if (__DEV__) {
     const hookName = ((currentHookNameInDev: any): HookType);
@@ -223,22 +205,6 @@ function updateHookTypesDev() {
       if (hookTypesDev[hookTypesUpdateIndexDev] !== hookName) {
         warnOnHookMismatchInDev(hookName);
       }
-    }
-  }
-}
-
-function checkDepsAreArrayDev(deps: mixed) {
-  if (__DEV__) {
-    if (deps !== undefined && deps !== null && !Array.isArray(deps)) {
-      // Verify deps, but only on mount to avoid extra checks.
-      // It's unlikely their type would change as usually you define them inline.
-      warning(
-        false,
-        '%s received a final argument that is not an array (instead, received `%s`). When ' +
-          'specified, the final argument must be an array.',
-        currentHookNameInDev,
-        typeof deps,
-      );
     }
   }
 }
@@ -309,13 +275,6 @@ function areHookInputsEqual(
   nextDeps: Array<mixed>,
   prevDeps: Array<mixed> | null,
 ) {
-  if (__DEV__) {
-    if (ignorePreviousDependencies) {
-      // Only true when this component is being hot reloaded.
-      return false;
-    }
-  }
-
   if (prevDeps === null) {
     if (__DEV__) {
       warning(
@@ -340,8 +299,8 @@ function areHookInputsEqual(
           'Previous: %s\n' +
           'Incoming: %s',
         currentHookNameInDev,
-        `[${prevDeps.join(', ')}]`,
         `[${nextDeps.join(', ')}]`,
+        `[${prevDeps.join(', ')}]`,
       );
     }
   }
@@ -372,9 +331,6 @@ export function renderWithHooks(
         ? ((current._debugHookTypes: any): Array<HookType>)
         : null;
     hookTypesUpdateIndexDev = -1;
-    // Used for hot reloading:
-    ignorePreviousDependencies =
-      current !== null && current.type !== workInProgress.type;
   }
 
   // The following should have already been reset
@@ -688,7 +644,7 @@ function updateReducer<S, I, A>(
         }
 
         hook.memoizedState = newState;
-        // Don't persist the state accumulated from the render phase updates to
+        // Don't persist the state accumlated from the render phase updates to
         // the base state unless the queue is empty.
         // TODO: Not sure if this is the desired semantics, but it's what we
         // do for gDSFP. I can't remember why.
@@ -746,19 +702,6 @@ function updateReducer<S, I, A>(
           remainingExpirationTime = updateExpirationTime;
         }
       } else {
-        // This update does have sufficient priority.
-
-        // Mark the event time of this update as relevant to this render pass.
-        // TODO: This should ideally use the true event time of this update rather than
-        // its priority which is a derived and not reverseable value.
-        // TODO: We should skip this update if it was already committed but currently
-        // we have no way of detecting the difference between a committed and suspended
-        // update here.
-        markRenderEventTimeAndConfig(
-          updateExpirationTime,
-          update.suspenseConfig,
-        );
-
         // Process this update.
         if (update.eagerReducer === reducer) {
           // If this update was processed eagerly, and its reducer matches the
@@ -899,14 +842,6 @@ function mountEffect(
   create: () => (() => void) | void,
   deps: Array<mixed> | void | null,
 ): void {
-  if (__DEV__) {
-    // $FlowExpectedError - jest isn't a global, and isn't recognized outside of tests
-    if ('undefined' !== typeof jest) {
-      warnIfNotCurrentlyActingEffectsInDEV(
-        ((currentlyRenderingFiber: any): Fiber),
-      );
-    }
-  }
   return mountEffectImpl(
     UpdateEffect | PassiveEffect,
     UnmountPassive | MountPassive,
@@ -919,14 +854,6 @@ function updateEffect(
   create: () => (() => void) | void,
   deps: Array<mixed> | void | null,
 ): void {
-  if (__DEV__) {
-    // $FlowExpectedError - jest isn't a global, and isn't recognized outside of tests
-    if ('undefined' !== typeof jest) {
-      warnIfNotCurrentlyActingEffectsInDEV(
-        ((currentlyRenderingFiber: any): Fiber),
-      );
-    }
-  }
   return updateEffectImpl(
     UpdateEffect | PassiveEffect,
     UnmountPassive | MountPassive,
@@ -1103,6 +1030,19 @@ function updateMemo<T>(
   return nextValue;
 }
 
+// in a test-like environment, we want to warn if dispatchAction()
+// is called outside of a batchedUpdates/TestUtils.act(...) call.
+let shouldWarnForUnbatchedSetState = false;
+
+if (__DEV__) {
+  // jest isn't a 'global', it's just exposed to tests via a wrapped function
+  // further, this isn't a test file, so flow doesn't recognize the symbol. So...
+  // $FlowExpectedError - because requirements don't give a damn about your type sigs.
+  if ('undefined' !== typeof jest) {
+    shouldWarnForUnbatchedSetState = true;
+  }
+}
+
 function dispatchAction<S, A>(
   fiber: Fiber,
   queue: UpdateQueue<S, A>,
@@ -1134,7 +1074,6 @@ function dispatchAction<S, A>(
     didScheduleRenderPhaseUpdate = true;
     const update: Update<S, A> = {
       expirationTime: renderExpirationTime,
-      suspenseConfig: null,
       action,
       eagerReducer: null,
       eagerState: null,
@@ -1155,21 +1094,13 @@ function dispatchAction<S, A>(
       lastRenderPhaseUpdate.next = update;
     }
   } else {
-    if (revertPassiveEffectsChange) {
-      flushPassiveEffects();
-    }
+    flushPassiveEffects();
 
     const currentTime = requestCurrentTime();
-    const suspenseConfig = requestCurrentSuspenseConfig();
-    const expirationTime = computeExpirationForFiber(
-      currentTime,
-      fiber,
-      suspenseConfig,
-    );
+    const expirationTime = computeExpirationForFiber(currentTime, fiber);
 
     const update: Update<S, A> = {
       expirationTime,
-      suspenseConfig,
       action,
       eagerReducer: null,
       eagerState: null,
@@ -1231,10 +1162,8 @@ function dispatchAction<S, A>(
       }
     }
     if (__DEV__) {
-      // $FlowExpectedError - jest isn't a global, and isn't recognized outside of tests
-      if ('undefined' !== typeof jest) {
-        warnIfNotScopedWithMatchingAct(fiber);
-        warnIfNotCurrentlyActingUpdatesInDev(fiber);
+      if (shouldWarnForUnbatchedSetState === true) {
+        warnIfNotCurrentlyBatchingInDev(fiber);
       }
     }
     scheduleWork(fiber, expirationTime);
@@ -1254,7 +1183,6 @@ export const ContextOnlyDispatcher: Dispatcher = {
   useRef: throwInvalidHookError,
   useState: throwInvalidHookError,
   useDebugValue: throwInvalidHookError,
-  useEvent: updateEventComponentInstance,
 };
 
 const HooksDispatcherOnMount: Dispatcher = {
@@ -1270,7 +1198,6 @@ const HooksDispatcherOnMount: Dispatcher = {
   useRef: mountRef,
   useState: mountState,
   useDebugValue: mountDebugValue,
-  useEvent: updateEventComponentInstance,
 };
 
 const HooksDispatcherOnUpdate: Dispatcher = {
@@ -1286,7 +1213,6 @@ const HooksDispatcherOnUpdate: Dispatcher = {
   useRef: updateRef,
   useState: updateState,
   useDebugValue: updateDebugValue,
-  useEvent: updateEventComponentInstance,
 };
 
 let HooksDispatcherOnMountInDEV: Dispatcher | null = null;
@@ -1327,7 +1253,6 @@ if (__DEV__) {
     useCallback<T>(callback: T, deps: Array<mixed> | void | null): T {
       currentHookNameInDev = 'useCallback';
       mountHookTypesDev();
-      checkDepsAreArrayDev(deps);
       return mountCallback(callback, deps);
     },
     useContext<T>(
@@ -1344,7 +1269,6 @@ if (__DEV__) {
     ): void {
       currentHookNameInDev = 'useEffect';
       mountHookTypesDev();
-      checkDepsAreArrayDev(deps);
       return mountEffect(create, deps);
     },
     useImperativeHandle<T>(
@@ -1354,7 +1278,6 @@ if (__DEV__) {
     ): void {
       currentHookNameInDev = 'useImperativeHandle';
       mountHookTypesDev();
-      checkDepsAreArrayDev(deps);
       return mountImperativeHandle(ref, create, deps);
     },
     useLayoutEffect(
@@ -1363,13 +1286,11 @@ if (__DEV__) {
     ): void {
       currentHookNameInDev = 'useLayoutEffect';
       mountHookTypesDev();
-      checkDepsAreArrayDev(deps);
       return mountLayoutEffect(create, deps);
     },
     useMemo<T>(create: () => T, deps: Array<mixed> | void | null): T {
       currentHookNameInDev = 'useMemo';
       mountHookTypesDev();
-      checkDepsAreArrayDev(deps);
       const prevDispatcher = ReactCurrentDispatcher.current;
       ReactCurrentDispatcher.current = InvalidNestedHooksDispatcherOnMountInDEV;
       try {
@@ -1415,11 +1336,6 @@ if (__DEV__) {
       currentHookNameInDev = 'useDebugValue';
       mountHookTypesDev();
       return mountDebugValue(value, formatterFn);
-    },
-    useEvent<E, C>(eventComponent: ReactEventComponent<E, C>, props) {
-      currentHookNameInDev = 'useEvent';
-      mountHookTypesDev();
-      updateEventComponentInstance(eventComponent, props);
     },
   };
 
@@ -1518,11 +1434,6 @@ if (__DEV__) {
       updateHookTypesDev();
       return mountDebugValue(value, formatterFn);
     },
-    useEvent<E, C>(eventComponent: ReactEventComponent<E, C>, props) {
-      currentHookNameInDev = 'useEvent';
-      updateHookTypesDev();
-      updateEventComponentInstance(eventComponent, props);
-    },
   };
 
   HooksDispatcherOnUpdateInDEV = {
@@ -1619,11 +1530,6 @@ if (__DEV__) {
       currentHookNameInDev = 'useDebugValue';
       updateHookTypesDev();
       return updateDebugValue(value, formatterFn);
-    },
-    useEvent<E, C>(eventComponent: ReactEventComponent<E, C>, props) {
-      currentHookNameInDev = 'useEvent';
-      updateHookTypesDev();
-      updateEventComponentInstance(eventComponent, props);
     },
   };
 
@@ -1733,12 +1639,6 @@ if (__DEV__) {
       mountHookTypesDev();
       return mountDebugValue(value, formatterFn);
     },
-    useEvent<E, C>(eventComponent: ReactEventComponent<E, C>, props) {
-      currentHookNameInDev = 'useEvent';
-      warnInvalidHookAccess();
-      mountHookTypesDev();
-      updateEventComponentInstance(eventComponent, props);
-    },
   };
 
   InvalidNestedHooksDispatcherOnUpdateInDEV = {
@@ -1846,12 +1746,6 @@ if (__DEV__) {
       warnInvalidHookAccess();
       updateHookTypesDev();
       return updateDebugValue(value, formatterFn);
-    },
-    useEvent<E, C>(eventComponent: ReactEventComponent<E, C>, props) {
-      currentHookNameInDev = 'useEvent';
-      warnInvalidHookAccess();
-      updateHookTypesDev();
-      updateEventComponentInstance(eventComponent, props);
     },
   };
 }

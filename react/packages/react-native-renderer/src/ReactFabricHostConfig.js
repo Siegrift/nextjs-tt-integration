@@ -13,61 +13,47 @@ import type {
   MeasureOnSuccessCallback,
   NativeMethodsMixinType,
   ReactNativeBaseComponentViewConfig,
-  ReactNativeResponderEvent,
-  ReactNativeResponderContext,
 } from './ReactNativeTypes';
-import type {ReactEventComponentInstance} from 'shared/ReactTypes';
 
-import {mountSafeCallback_NOT_REALLY_SAFE} from './NativeMethodsMixinUtils';
+import {
+  mountSafeCallback_NOT_REALLY_SAFE,
+  warnForStyleProps,
+} from './NativeMethodsMixinUtils';
 import {create, diff} from './ReactNativeAttributePayload';
+import {
+  now as ReactNativeFrameSchedulingNow,
+  cancelDeferredCallback as ReactNativeFrameSchedulingCancelDeferredCallback,
+  scheduleDeferredCallback as ReactNativeFrameSchedulingScheduleDeferredCallback,
+  shouldYield as ReactNativeFrameSchedulingShouldYield,
+} from './ReactNativeFrameScheduling';
+import {get as getViewConfigForType} from 'ReactNativeViewConfigRegistry';
 
+import deepFreezeAndThrowOnMutationInDev from 'deepFreezeAndThrowOnMutationInDev';
 import invariant from 'shared/invariant';
-import warningWithoutStack from 'shared/warningWithoutStack';
 
 import {dispatchEvent} from './ReactFabricEventEmitter';
-import {
-  addRootEventTypesForComponentInstance,
-  mountEventResponder,
-  unmountEventResponder,
-} from './ReactFabricEventResponderSystem';
-
-import {enableFlareAPI} from 'shared/ReactFeatureFlags';
 
 // Modules provided by RN:
+import TextInputState from 'TextInputState';
 import {
-  ReactNativeViewConfigRegistry,
-  TextInputState,
-  deepFreezeAndThrowOnMutationInDev,
-} from 'react-native/Libraries/ReactPrivate/ReactNativePrivateInterface';
-
-const {
   createNode,
   cloneNode,
   cloneNodeWithNewChildren,
   cloneNodeWithNewChildrenAndProps,
   cloneNodeWithNewProps,
-  createChildSet: createChildNodeSet,
-  appendChild: appendChildNode,
-  appendChildToSet: appendChildNodeToSet,
+  createChildSet as createChildNodeSet,
+  appendChild as appendChildNode,
+  appendChildToSet as appendChildNodeToSet,
   completeRoot,
   registerEventHandler,
-  measure: fabricMeasure,
-  measureInWindow: fabricMeasureInWindow,
-  measureLayout: fabricMeasureLayout,
-} = nativeFabricUIManager;
-
-const {get: getViewConfigForType} = ReactNativeViewConfigRegistry;
+} from 'FabricUIManager';
+import UIManager from 'UIManager';
 
 // Counter for uniquely identifying views.
 // % 10 === 1 means it is a rootTag.
 // % 2 === 0 means it is a Fabric tag.
 // This means that they never overlap.
 let nextReactTag = 2;
-
-type ReactNativeEventComponentInstance = ReactEventComponentInstance<
-  ReactNativeResponderEvent,
-  ReactNativeResponderContext,
->;
 
 type Node = Object;
 export type Type = string;
@@ -106,18 +92,15 @@ class ReactFabricHostComponent {
   _nativeTag: number;
   viewConfig: ReactNativeBaseComponentViewConfig<>;
   currentProps: Props;
-  _internalInstanceHandle: Object;
 
   constructor(
     tag: number,
     viewConfig: ReactNativeBaseComponentViewConfig<>,
     props: Props,
-    internalInstanceHandle: Object,
   ) {
     this._nativeTag = tag;
     this.viewConfig = viewConfig;
     this.currentProps = props;
-    this._internalInstanceHandle = internalInstanceHandle;
   }
 
   blur() {
@@ -129,51 +112,49 @@ class ReactFabricHostComponent {
   }
 
   measure(callback: MeasureOnSuccessCallback) {
-    fabricMeasure(
-      this._internalInstanceHandle.stateNode.node,
+    UIManager.measure(
+      this._nativeTag,
       mountSafeCallback_NOT_REALLY_SAFE(this, callback),
     );
   }
 
   measureInWindow(callback: MeasureInWindowOnSuccessCallback) {
-    fabricMeasureInWindow(
-      this._internalInstanceHandle.stateNode.node,
+    UIManager.measureInWindow(
+      this._nativeTag,
       mountSafeCallback_NOT_REALLY_SAFE(this, callback),
     );
   }
 
   measureLayout(
-    relativeToNativeNode: number | Object,
+    relativeToNativeNode: number,
     onSuccess: MeasureLayoutOnSuccessCallback,
     onFail: () => void /* currently unused */,
   ) {
-    if (
-      typeof relativeToNativeNode === 'number' ||
-      !(relativeToNativeNode instanceof ReactFabricHostComponent)
-    ) {
-      warningWithoutStack(
-        false,
-        'Warning: ref.measureLayout must be called with a ref to a native component.',
-      );
-
-      return;
-    }
-
-    fabricMeasureLayout(
-      this._internalInstanceHandle.stateNode.node,
-      relativeToNativeNode._internalInstanceHandle.stateNode.node,
+    UIManager.measureLayout(
+      this._nativeTag,
+      relativeToNativeNode,
       mountSafeCallback_NOT_REALLY_SAFE(this, onFail),
       mountSafeCallback_NOT_REALLY_SAFE(this, onSuccess),
     );
   }
 
   setNativeProps(nativeProps: Object) {
-    warningWithoutStack(
-      false,
-      'Warning: setNativeProps is not currently supported in Fabric',
-    );
+    if (__DEV__) {
+      warnForStyleProps(nativeProps, this.viewConfig.validAttributes);
+    }
 
-    return;
+    const updatePayload = create(nativeProps, this.viewConfig.validAttributes);
+
+    // Avoid the overhead of bridge calls if there's no update.
+    // This is an expensive no-op for Android, and causes an unnecessary
+    // view invalidation for certain components (eg RCTTextInput) on iOS.
+    if (updatePayload != null) {
+      UIManager.updateView(
+        this._nativeTag,
+        this.viewConfig.uiViewClassName,
+        updatePayload,
+      );
+    }
   }
 }
 
@@ -210,6 +191,11 @@ export function createInstance(
     }
   }
 
+  invariant(
+    type !== 'RCTView' || !hostContext.isInAParentText,
+    'Nesting of <View> within <Text> is not currently supported.',
+  );
+
   const updatePayload = create(props, viewConfig.validAttributes);
 
   const node = createNode(
@@ -220,12 +206,7 @@ export function createInstance(
     internalInstanceHandle, // internalInstanceHandle
   );
 
-  const component = new ReactFabricHostComponent(
-    tag,
-    viewConfig,
-    props,
-    internalInstanceHandle,
-  );
+  const component = new ReactFabricHostComponent(tag, viewConfig, props);
 
   return {
     node: node,
@@ -296,13 +277,6 @@ export function getChildHostContext(
   }
 }
 
-export function getChildHostContextForEventComponent(
-  parentHostContext: HostContext,
-) {
-  // TODO: add getChildHostContextForEventComponent implementation
-  return parentHostContext;
-}
-
 export function getPublicInstance(instance: Instance): * {
   return instance.canonical;
 }
@@ -348,13 +322,16 @@ export function shouldSetTextContent(type: string, props: Props): boolean {
 
 // The Fabric renderer is secondary to the existing React Native renderer.
 export const isPrimaryRenderer = false;
-
-// The Fabric renderer shouldn't trigger missing act() warnings
-export const warnsIfNotActing = false;
+export const now = ReactNativeFrameSchedulingNow;
+export const scheduleDeferredCallback = ReactNativeFrameSchedulingScheduleDeferredCallback;
+export const cancelDeferredCallback = ReactNativeFrameSchedulingCancelDeferredCallback;
+export const shouldYield = ReactNativeFrameSchedulingShouldYield;
 
 export const scheduleTimeout = setTimeout;
 export const cancelTimeout = clearTimeout;
 export const noTimeout = -1;
+export const schedulePassiveEffects = scheduleDeferredCallback;
+export const cancelPassiveEffects = cancelDeferredCallback;
 
 // -------------------
 //     Persistence
@@ -411,9 +388,29 @@ export function cloneHiddenInstance(
   };
 }
 
-export function cloneHiddenTextInstance(
+export function cloneUnhiddenInstance(
   instance: Instance,
+  type: string,
+  props: Props,
+  internalInstanceHandle: Object,
+): Instance {
+  const viewConfig = instance.canonical.viewConfig;
+  const node = instance.node;
+  const updatePayload = diff(
+    {...props, style: [props.style, {display: 'none'}]},
+    props,
+    viewConfig.validAttributes,
+  );
+  return {
+    node: cloneNodeWithNewProps(node, updatePayload),
+    canonical: instance.canonical,
+  };
+}
+
+export function createHiddenTextInstance(
   text: string,
+  rootContainerInstance: Container,
+  hostContext: HostContext,
   internalInstanceHandle: Object,
 ): TextInstance {
   throw new Error('Not yet implemented.');
@@ -441,34 +438,3 @@ export function replaceContainerChildren(
   container: Container,
   newChildren: ChildSet,
 ): void {}
-
-export function mountEventComponent(
-  eventComponentInstance: ReactNativeEventComponentInstance,
-) {
-  if (enableFlareAPI) {
-    const responder = eventComponentInstance.responder;
-    const {rootEventTypes} = responder;
-    if (rootEventTypes !== undefined) {
-      addRootEventTypesForComponentInstance(
-        eventComponentInstance,
-        rootEventTypes,
-      );
-    }
-    mountEventResponder(eventComponentInstance);
-  }
-}
-
-export function updateEventComponent(
-  eventComponentInstance: ReactNativeEventComponentInstance,
-) {
-  // NO-OP, why might use this in the future
-}
-
-export function unmountEventComponent(
-  eventComponentInstance: ReactNativeEventComponentInstance,
-): void {
-  if (enableFlareAPI) {
-    // TODO stop listening to targetEventTypes
-    unmountEventResponder(eventComponentInstance);
-  }
-}

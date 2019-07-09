@@ -21,14 +21,13 @@ import type {ExpirationTime} from './ReactFiberExpirationTime';
 import type {CapturedValue, CapturedError} from './ReactCapturedValue';
 import type {SuspenseState} from './ReactFiberSuspenseComponent';
 import type {FunctionComponentUpdateQueue} from './ReactFiberHooks';
-import type {Thenable} from './ReactFiberWorkLoop';
+import type {Thenable} from './ReactFiberScheduler';
 
 import {unstable_wrap as Schedule_tracing_wrap} from 'scheduler/tracing';
 import {
   enableSchedulerTracing,
   enableProfilerTimer,
   enableSuspenseServerRenderer,
-  enableFlareAPI,
 } from 'shared/ReactFeatureFlags';
 import {
   FunctionComponent,
@@ -44,8 +43,6 @@ import {
   IncompleteClassComponent,
   MemoComponent,
   SimpleMemoComponent,
-  EventComponent,
-  SuspenseListComponent,
 } from 'shared/ReactWorkTags';
 import {
   invokeGuardedCallback,
@@ -63,6 +60,7 @@ import invariant from 'shared/invariant';
 import warningWithoutStack from 'shared/warningWithoutStack';
 import warning from 'shared/warning';
 
+import {NoWork} from './ReactFiberExpirationTime';
 import {onCommitUnmount} from './ReactFiberDevToolsHook';
 import {startPhaseTimer, stopPhaseTimer} from './ReactDebugFiberPerf';
 import {getStackByFiberInDevAndProd} from './ReactCurrentFiber';
@@ -92,14 +90,12 @@ import {
   hideTextInstance,
   unhideInstance,
   unhideTextInstance,
-  unmountEventComponent,
-  mountEventComponent,
 } from './ReactFiberHostConfig';
 import {
   captureCommitPhaseError,
-  resolveRetryThenable,
-  markCommitTimeOfFallback,
-} from './ReactFiberWorkLoop';
+  requestCurrentTime,
+  retryTimedOutBoundary,
+} from './ReactFiberScheduler';
 import {
   NoEffect as NoHookEffect,
   UnmountSnapshot,
@@ -588,15 +584,9 @@ function commitLifeCycles(
       return;
     }
     case SuspenseComponent:
-    case SuspenseListComponent:
+      break;
     case IncompleteClassComponent:
-      return;
-    case EventComponent: {
-      if (enableFlareAPI) {
-        mountEventComponent(finishedWork.stateNode);
-      }
-      return;
-    }
+      break;
     default: {
       invariant(
         false,
@@ -751,13 +741,6 @@ function commitUnmount(current: Fiber): void {
       }
       return;
     }
-    case EventComponent: {
-      if (enableFlareAPI) {
-        const eventComponentInstance = current.stateNode;
-        unmountEventComponent(eventComponentInstance);
-        current.stateNode = null;
-      }
-    }
   }
 }
 
@@ -806,14 +789,12 @@ function detachFiber(current: Fiber) {
   current.child = null;
   current.memoizedState = null;
   current.updateQueue = null;
-  current.dependencies = null;
   const alternate = current.alternate;
   if (alternate !== null) {
     alternate.return = null;
     alternate.child = null;
     alternate.memoizedState = null;
     alternate.updateQueue = null;
-    alternate.dependencies = null;
   }
 }
 
@@ -835,10 +816,13 @@ function commitContainer(finishedWork: Fiber) {
   }
 
   switch (finishedWork.tag) {
-    case ClassComponent:
-    case HostComponent:
-    case HostText:
-    case EventComponent: {
+    case ClassComponent: {
+      return;
+    }
+    case HostComponent: {
+      return;
+    }
+    case HostText: {
       return;
     }
     case HostRoot:
@@ -976,18 +960,17 @@ function commitPlacement(finishedWork: Fiber): void {
   let node: Fiber = finishedWork;
   while (true) {
     if (node.tag === HostComponent || node.tag === HostText) {
-      const stateNode = node.stateNode;
       if (before) {
         if (isContainer) {
-          insertInContainerBefore(parent, stateNode, before);
+          insertInContainerBefore(parent, node.stateNode, before);
         } else {
-          insertBefore(parent, stateNode, before);
+          insertBefore(parent, node.stateNode, before);
         }
       } else {
         if (isContainer) {
-          appendChildToContainer(parent, stateNode);
+          appendChildToContainer(parent, node.stateNode);
         } else {
-          appendChild(parent, stateNode);
+          appendChild(parent, node.stateNode);
         }
       }
     } else if (node.tag === HostPortal) {
@@ -1149,18 +1132,6 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
         commitHookEffectList(UnmountMutation, MountMutation, finishedWork);
         return;
       }
-      case Profiler: {
-        return;
-      }
-      case SuspenseComponent: {
-        commitSuspenseComponent(finishedWork);
-        attachSuspenseRetryListeners(finishedWork);
-        return;
-      }
-      case SuspenseListComponent: {
-        attachSuspenseRetryListeners(finishedWork);
-        return;
-      }
     }
 
     commitContainer(finishedWork);
@@ -1229,18 +1200,53 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
       return;
     }
     case SuspenseComponent: {
-      commitSuspenseComponent(finishedWork);
-      attachSuspenseRetryListeners(finishedWork);
-      return;
-    }
-    case SuspenseListComponent: {
-      attachSuspenseRetryListeners(finishedWork);
+      let newState: SuspenseState | null = finishedWork.memoizedState;
+
+      let newDidTimeout;
+      let primaryChildParent = finishedWork;
+      if (newState === null) {
+        newDidTimeout = false;
+      } else {
+        newDidTimeout = true;
+        primaryChildParent = finishedWork.child;
+        if (newState.timedOutAt === NoWork) {
+          // If the children had not already timed out, record the time.
+          // This is used to compute the elapsed time during subsequent
+          // attempts to render the children.
+          newState.timedOutAt = requestCurrentTime();
+        }
+      }
+
+      if (primaryChildParent !== null) {
+        hideOrUnhideAllChildren(primaryChildParent, newDidTimeout);
+      }
+
+      // If this boundary just timed out, then it will have a set of thenables.
+      // For each thenable, attach a listener so that when it resolves, React
+      // attempts to re-render the boundary in the primary (pre-timeout) state.
+      const thenables: Set<Thenable> | null = (finishedWork.updateQueue: any);
+      if (thenables !== null) {
+        finishedWork.updateQueue = null;
+        let retryCache = finishedWork.stateNode;
+        if (retryCache === null) {
+          retryCache = finishedWork.stateNode = new PossiblyWeakSet();
+        }
+        thenables.forEach(thenable => {
+          // Memoize using the boundary fiber to prevent redundant listeners.
+          let retry = retryTimedOutBoundary.bind(null, finishedWork, thenable);
+          if (enableSchedulerTracing) {
+            retry = Schedule_tracing_wrap(retry);
+          }
+          if (!retryCache.has(thenable)) {
+            retryCache.add(thenable);
+            thenable.then(retry, retry);
+          }
+        });
+      }
+
       return;
     }
     case IncompleteClassComponent: {
-      return;
-    }
-    case EventComponent: {
       return;
     }
     default: {
@@ -1250,49 +1256,6 @@ function commitWork(current: Fiber | null, finishedWork: Fiber): void {
           'likely caused by a bug in React. Please file an issue.',
       );
     }
-  }
-}
-
-function commitSuspenseComponent(finishedWork: Fiber) {
-  let newState: SuspenseState | null = finishedWork.memoizedState;
-
-  let newDidTimeout;
-  let primaryChildParent = finishedWork;
-  if (newState === null) {
-    newDidTimeout = false;
-  } else {
-    newDidTimeout = true;
-    primaryChildParent = finishedWork.child;
-    markCommitTimeOfFallback();
-  }
-
-  if (supportsMutation && primaryChildParent !== null) {
-    hideOrUnhideAllChildren(primaryChildParent, newDidTimeout);
-  }
-}
-
-function attachSuspenseRetryListeners(finishedWork: Fiber) {
-  // If this boundary just timed out, then it will have a set of thenables.
-  // For each thenable, attach a listener so that when it resolves, React
-  // attempts to re-render the boundary in the primary (pre-timeout) state.
-  const thenables: Set<Thenable> | null = (finishedWork.updateQueue: any);
-  if (thenables !== null) {
-    finishedWork.updateQueue = null;
-    let retryCache = finishedWork.stateNode;
-    if (retryCache === null) {
-      retryCache = finishedWork.stateNode = new PossiblyWeakSet();
-    }
-    thenables.forEach(thenable => {
-      // Memoize using the boundary fiber to prevent redundant listeners.
-      let retry = resolveRetryThenable.bind(null, finishedWork, thenable);
-      if (!retryCache.has(thenable)) {
-        if (enableSchedulerTracing) {
-          retry = Schedule_tracing_wrap(retry);
-        }
-        retryCache.add(thenable);
-        thenable.then(retry, retry);
-      }
-    });
   }
 }
 

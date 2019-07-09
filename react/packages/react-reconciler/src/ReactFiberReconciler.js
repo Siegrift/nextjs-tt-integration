@@ -9,7 +9,6 @@
 
 import type {Fiber} from './ReactFiber';
 import type {FiberRoot} from './ReactFiberRoot';
-import type {RootTag} from 'shared/ReactRootTags';
 import type {
   Instance,
   TextInstance,
@@ -18,7 +17,6 @@ import type {
 } from './ReactFiberHostConfig';
 import type {ReactNodeList} from 'shared/ReactTypes';
 import type {ExpirationTime} from './ReactFiberExpirationTime';
-import type {SuspenseConfig} from './ReactFiberSuspenseConfig';
 
 import {
   findCurrentHostFiber,
@@ -45,20 +43,18 @@ import {
   requestCurrentTime,
   computeExpirationForFiber,
   scheduleWork,
+  requestWork,
   flushRoot,
-  batchedEventUpdates,
   batchedUpdates,
   unbatchedUpdates,
   flushSync,
   flushControlled,
   deferredUpdates,
   syncUpdates,
-  discreteUpdates,
-  flushDiscreteUpdates,
+  interactiveUpdates,
+  flushInteractiveUpdates,
   flushPassiveEffects,
-  warnIfNotScopedWithMatchingAct,
-  IsThisRendererActing,
-} from './ReactFiberWorkLoop';
+} from './ReactFiberScheduler';
 import {createUpdate, enqueueUpdate} from './ReactUpdateQueue';
 import ReactFiberInstrumentation from './ReactFiberInstrumentation';
 import {
@@ -68,14 +64,6 @@ import {
 } from './ReactCurrentFiber';
 import {StrictMode} from './ReactTypeOfMode';
 import {Sync} from './ReactFiberExpirationTime';
-import {revertPassiveEffectsChange} from 'shared/ReactFeatureFlags';
-import {requestCurrentSuspenseConfig} from './ReactFiberSuspenseConfig';
-import {
-  scheduleRefresh,
-  scheduleRoot,
-  setRefreshHandler,
-  findHostInstancesForRefresh,
-} from './ReactFiberHotReloading';
 
 type OpaqueRoot = FiberRoot;
 
@@ -128,7 +116,6 @@ function scheduleRootUpdate(
   current: Fiber,
   element: ReactNodeList,
   expirationTime: ExpirationTime,
-  suspenseConfig: null | SuspenseConfig,
   callback: ?Function,
 ) {
   if (__DEV__) {
@@ -149,7 +136,7 @@ function scheduleRootUpdate(
     }
   }
 
-  const update = createUpdate(expirationTime, suspenseConfig);
+  const update = createUpdate(expirationTime);
   // Caution: React DevTools currently depends on this property
   // being called "element".
   update.payload = {element};
@@ -165,9 +152,7 @@ function scheduleRootUpdate(
     update.callback = callback;
   }
 
-  if (revertPassiveEffectsChange) {
-    flushPassiveEffects();
-  }
+  flushPassiveEffects();
   enqueueUpdate(current, update);
   scheduleWork(current, expirationTime);
 
@@ -179,7 +164,6 @@ export function updateContainerAtExpirationTime(
   container: OpaqueRoot,
   parentComponent: ?React$Component<any, any>,
   expirationTime: ExpirationTime,
-  suspenseConfig: null | SuspenseConfig,
   callback: ?Function,
 ) {
   // TODO: If this is a nested container, this won't be the root.
@@ -204,13 +188,7 @@ export function updateContainerAtExpirationTime(
     container.pendingContext = context;
   }
 
-  return scheduleRootUpdate(
-    current,
-    element,
-    expirationTime,
-    suspenseConfig,
-    callback,
-  );
+  return scheduleRootUpdate(current, element, expirationTime, callback);
 }
 
 function findHostInstance(component: Object): PublicInstance | null {
@@ -296,10 +274,10 @@ function findHostInstanceWithWarning(
 
 export function createContainer(
   containerInfo: Container,
-  tag: RootTag,
+  isConcurrent: boolean,
   hydrate: boolean,
 ): OpaqueRoot {
-  return createFiberRoot(containerInfo, tag, hydrate);
+  return createFiberRoot(containerInfo, isConcurrent, hydrate);
 }
 
 export function updateContainer(
@@ -310,42 +288,28 @@ export function updateContainer(
 ): ExpirationTime {
   const current = container.current;
   const currentTime = requestCurrentTime();
-  if (__DEV__) {
-    // $FlowExpectedError - jest isn't a global, and isn't recognized outside of tests
-    if ('undefined' !== typeof jest) {
-      warnIfNotScopedWithMatchingAct(current);
-    }
-  }
-  const suspenseConfig = requestCurrentSuspenseConfig();
-  const expirationTime = computeExpirationForFiber(
-    currentTime,
-    current,
-    suspenseConfig,
-  );
+  const expirationTime = computeExpirationForFiber(currentTime, current);
   return updateContainerAtExpirationTime(
     element,
     container,
     parentComponent,
     expirationTime,
-    suspenseConfig,
     callback,
   );
 }
 
 export {
   flushRoot,
+  requestWork,
   computeUniqueAsyncExpiration,
-  batchedEventUpdates,
   batchedUpdates,
   unbatchedUpdates,
   deferredUpdates,
   syncUpdates,
-  discreteUpdates,
-  flushDiscreteUpdates,
+  interactiveUpdates,
+  flushInteractiveUpdates,
   flushControlled,
   flushSync,
-  flushPassiveEffects,
-  IsThisRendererActing,
 };
 
 export function getPublicRootInstance(
@@ -377,16 +341,7 @@ export function findHostInstanceWithNoPortals(
   return hostFiber.stateNode;
 }
 
-let shouldSuspendImpl = fiber => false;
-
-export function shouldSuspend(fiber: Fiber): boolean {
-  return shouldSuspendImpl(fiber);
-}
-
-let overrideHookState = null;
 let overrideProps = null;
-let scheduleUpdate = null;
-let setSuspenseHandler = null;
 
 if (__DEV__) {
   const copyWithSetImpl = (
@@ -413,61 +368,14 @@ if (__DEV__) {
     return copyWithSetImpl(obj, path, 0, value);
   };
 
-  // Support DevTools editable values for useState and useReducer.
-  overrideHookState = (
-    fiber: Fiber,
-    id: number,
-    path: Array<string | number>,
-    value: any,
-  ) => {
-    // For now, the "id" of stateful hooks is just the stateful hook index.
-    // This may change in the future with e.g. nested hooks.
-    let currentHook = fiber.memoizedState;
-    while (currentHook !== null && id > 0) {
-      currentHook = currentHook.next;
-      id--;
-    }
-    if (currentHook !== null) {
-      if (revertPassiveEffectsChange) {
-        flushPassiveEffects();
-      }
-
-      const newState = copyWithSet(currentHook.memoizedState, path, value);
-      currentHook.memoizedState = newState;
-      currentHook.baseState = newState;
-
-      // We aren't actually adding an update to the queue,
-      // because there is no update we can add for useReducer hooks that won't trigger an error.
-      // (There's no appropriate action type for DevTools overrides.)
-      // As a result though, React will see the scheduled update as a noop and bailout.
-      // Shallow cloning props works as a workaround for now to bypass the bailout check.
-      fiber.memoizedProps = {...fiber.memoizedProps};
-
-      scheduleWork(fiber, Sync);
-    }
-  };
-
   // Support DevTools props for function components, forwardRef, memo, host components, etc.
   overrideProps = (fiber: Fiber, path: Array<string | number>, value: any) => {
-    if (revertPassiveEffectsChange) {
-      flushPassiveEffects();
-    }
+    flushPassiveEffects();
     fiber.pendingProps = copyWithSet(fiber.memoizedProps, path, value);
     if (fiber.alternate) {
       fiber.alternate.pendingProps = fiber.pendingProps;
     }
     scheduleWork(fiber, Sync);
-  };
-
-  scheduleUpdate = (fiber: Fiber) => {
-    if (revertPassiveEffectsChange) {
-      flushPassiveEffects();
-    }
-    scheduleWork(fiber, Sync);
-  };
-
-  setSuspenseHandler = (newShouldSuspendImpl: Fiber => boolean) => {
-    shouldSuspendImpl = newShouldSuspendImpl;
   };
 }
 
@@ -477,10 +385,7 @@ export function injectIntoDevTools(devToolsConfig: DevToolsConfig): boolean {
 
   return injectInternals({
     ...devToolsConfig,
-    overrideHookState,
     overrideProps,
-    setSuspenseHandler,
-    scheduleUpdate,
     currentDispatcherRef: ReactCurrentDispatcher,
     findHostInstanceByFiber(fiber: Fiber): Instance | TextInstance | null {
       const hostFiber = findCurrentHostFiber(fiber);
@@ -496,10 +401,5 @@ export function injectIntoDevTools(devToolsConfig: DevToolsConfig): boolean {
       }
       return findFiberByHostInstance(instance);
     },
-    // React Refresh
-    findHostInstancesForRefresh: __DEV__ ? findHostInstancesForRefresh : null,
-    scheduleRefresh: __DEV__ ? scheduleRefresh : null,
-    scheduleRoot: __DEV__ ? scheduleRoot : null,
-    setRefreshHandler: __DEV__ ? setRefreshHandler : null,
   });
 }

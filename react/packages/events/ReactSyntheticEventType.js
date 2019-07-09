@@ -9,7 +9,6 @@
  */
 
 import type {Fiber} from 'react-reconciler/src/ReactFiber';
-import type {EventPriority} from 'shared/ReactTypes';
 import type {TopLevelType} from './TopLevelEventTypes';
 
 export type DispatchConfig = {
@@ -19,7 +18,7 @@ export type DispatchConfig = {
     captured: string,
   },
   registrationName?: string,
-  eventPriority: EventPriority,
+  isInteractive?: boolean,
 };
 
 export type ReactSyntheticEvent = {

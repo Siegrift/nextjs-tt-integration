@@ -13,9 +13,6 @@ import {registrationNameModules} from 'events/EventPluginRegistry';
 import warning from 'shared/warning';
 import {canUseDOM} from 'shared/ExecutionEnvironment';
 import warningWithoutStack from 'shared/warningWithoutStack';
-import endsWith from 'shared/endsWith';
-import type {DOMTopLevelEventType} from 'events/TopLevelEventTypes';
-import {setListenToResponderEventTypes} from '../events/DOMEventResponderSystem';
 
 import {
   getValueForAttribute,
@@ -60,12 +57,7 @@ import {
   TOP_SUBMIT,
   TOP_TOGGLE,
 } from '../events/DOMTopLevelEventTypes';
-import {
-  listenTo,
-  trapBubbledEvent,
-  getListeningSetForElement,
-} from '../events/ReactBrowserEventEmitter';
-import {trapEventForResponderEventSystem} from '../events/ReactDOMEventListener.js';
+import {listenTo, trapBubbledEvent} from '../events/ReactBrowserEventEmitter';
 import {mediaEventTypes} from '../events/DOMTopLevelEventTypes';
 import {
   createDangerousStringForStyles,
@@ -85,8 +77,6 @@ import possibleStandardNames from '../shared/possibleStandardNames';
 import {validateProperties as validateARIAProperties} from '../shared/ReactDOMInvalidARIAHook';
 import {validateProperties as validateInputProperties} from '../shared/ReactDOMNullInputValuePropHook';
 import {validateProperties as validateUnknownProperties} from '../shared/ReactDOMUnknownPropertyHook';
-
-import {enableFlareAPI} from 'shared/ReactFeatureFlags';
 
 let didWarnInvalidHydration = false;
 let didWarnShadyDOM = false;
@@ -263,10 +253,7 @@ if (__DEV__) {
   };
 }
 
-function ensureListeningTo(
-  rootContainerElement: Element | Node,
-  registrationName: string,
-): void {
+function ensureListeningTo(rootContainerElement, registrationName) {
   const isDocumentOrFragment =
     rootContainerElement.nodeType === DOCUMENT_NODE ||
     rootContainerElement.nodeType === DOCUMENT_FRAGMENT_NODE;
@@ -518,7 +505,6 @@ export function setInitialProperties(
   switch (tag) {
     case 'iframe':
     case 'object':
-    case 'embed':
       trapBubbledEvent(TOP_LOAD, domElement);
       props = rawProps;
       break;
@@ -913,7 +899,6 @@ export function diffHydratedProperties(
   switch (tag) {
     case 'iframe':
     case 'object':
-    case 'embed':
       trapBubbledEvent(TOP_LOAD, domElement);
       break;
     case 'video':
@@ -1278,38 +1263,4 @@ export function restoreControlledState(
       ReactDOMSelectRestoreControlledState(domElement, props);
       return;
   }
-}
-
-export function listenToEventResponderEventTypes(
-  eventTypes: Array<string>,
-  element: Element | Document,
-): void {
-  if (enableFlareAPI) {
-    // Get the listening Set for this element. We use this to track
-    // what events we're listening to.
-    const listeningSet = getListeningSetForElement(element);
-
-    // Go through each target event type of the event responder
-    for (let i = 0, length = eventTypes.length; i < length; ++i) {
-      const eventType = eventTypes[i];
-      const isPassive = !endsWith(eventType, '_active');
-      const eventKey = isPassive ? eventType + '_passive' : eventType;
-      const targetEventType = isPassive
-        ? eventType
-        : eventType.substring(0, eventType.length - 7);
-      if (!listeningSet.has(eventKey)) {
-        trapEventForResponderEventSystem(
-          element,
-          ((targetEventType: any): DOMTopLevelEventType),
-          isPassive,
-        );
-        listeningSet.add(eventKey);
-      }
-    }
-  }
-}
-
-// We can remove this once the event API is stable and out of a flag
-if (enableFlareAPI) {
-  setListenToResponderEventTypes(listenToEventResponderEventTypes);
 }
