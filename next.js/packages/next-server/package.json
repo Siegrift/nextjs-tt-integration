@@ -54,8 +54,8 @@
     "url": "0.11.0"
   },
   "peerDependencies": {
-    "react": "^16.6.0",
-    "react-dom": "^16.6.0"
+    "react": "link:../../../react/packages/react",
+    "react-dom": "link:../../../react/packages/react-dom"
   },
   "devDependencies": {
     "@taskr/clear": "1.1.0",

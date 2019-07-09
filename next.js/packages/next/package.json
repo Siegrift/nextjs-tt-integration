@@ -104,8 +104,8 @@
     "worker-farm": "1.7.0"
   },
   "peerDependencies": {
-    "react": "^16.6.0",
-    "react-dom": "^16.6.0"
+    "react": "link:../../../react/packages/react",
+    "react-dom": "link:../../../react/packages/react-dom"
   },
   "devDependencies": {
     "@babel/parser": "7.4.5",

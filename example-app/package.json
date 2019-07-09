@@ -7,7 +7,7 @@
   },
   "dependencies": {
     "next": "link:../next.js/packages/next",
-    "react": "^16.8.6",
-    "react-dom": "^16.8.6"
+    "react": "link:../react/packages/react",
+    "react-dom": "link:../react/packages/react-dom"
   }
 }
