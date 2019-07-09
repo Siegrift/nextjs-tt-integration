@@ -9,6 +9,7 @@ const Template = require("../Template");
 
 class JsonpMainTemplatePlugin {
 	apply(mainTemplate) {
+    console.log('Using custom Webpack')
 		const needChunkOnDemandLoadingCode = chunk => {
 			for (const chunkGroup of chunk.groupsIterable) {
 				if (chunkGroup.getNumberOfChildren() > 0) return true;
@@ -162,7 +163,7 @@ class JsonpMainTemplatePlugin {
 					Template.indent(
 						`script.setAttribute("nonce", ${mainTemplate.requireFn}.nc);`
 					),
-					"}",
+          "}",
 					"script.src = jsonpScriptSrc(chunkId);",
 					crossOriginLoading
 						? Template.asString([
