@@ -6,7 +6,7 @@
     "start": "next start"
   },
   "dependencies": {
-    "next": "^9.0.0",
+    "next": "link:../next.js/packages/next",
     "react": "^16.8.6",
     "react-dom": "^16.8.6"
   }
