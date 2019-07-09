@@ -1,4 +1,5 @@
 import Router from '../router'
+import trustedTypePolicy from '../trusted-types-policy'
 
 export default function initializeBuildWatcher () {
   const shadowHost = document.createElement('div')
@@ -66,7 +67,7 @@ export default function initializeBuildWatcher () {
 function createContainer (prefix) {
   const container = document.createElement('div')
   container.id = `${prefix}container`
-  container.innerHTML = `
+  let html = `
     <div id="${prefix}icon-wrapper">
       <svg width="15" height="20" viewBox="0 0 60 80" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M36 3L30.74 41H8L36 3Z" fill="black"/>
@@ -76,6 +77,7 @@ function createContainer (prefix) {
       Prerendered Page
     </div>
   `
+  container.innerHTML = trustedTypePolicy.createHTML(html)
 
   return container
 }

@@ -1,0 +1,9 @@
+./packages/next-server/lib/router/router.ts:406: window.location.href (when router can’t load a page, used to hard reload to custom route)
+./packages/next/client/page-loader.js:198: link.href (for preload)
+./packages/next/client/page-loader.js:121: script.src(when loading nextjs default components e.g. _error.js)
+./packages/next/client/head-manager.js:75: innerText/innerContent/setAttribute (adding new html tags to head, possibly scripts)
+React sinks:
+./react-dom/src/client/setTextContent.js:34:  node.textContent
+./react-dom/src/client/ReactDOMComponent.js:264: testElement.innerHTML = html;
+./react-dom/src/client/setInnerHTML.js:34, 43: node.innerHTML;
+./react-dom/src/client/DOMPropertyOperations.js:145, 181, 183: node.setAttribute

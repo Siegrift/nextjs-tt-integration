@@ -164,7 +164,7 @@ class JsonpMainTemplatePlugin {
 						`script.setAttribute("nonce", ${mainTemplate.requireFn}.nc);`
 					),
           "}",
-					"script.src = jsonpScriptSrc(chunkId);",
+          "script.src = webpackPolicy.createScriptURL(jsonpScriptSrc(chunkId));",
 					crossOriginLoading
 						? Template.asString([
 								"if (script.src.indexOf(window.location.origin + '/') !== 0) {",
@@ -229,7 +229,7 @@ class JsonpMainTemplatePlugin {
 					"}",
 					'link.rel = "preload";',
 					'link.as = "script";',
-					"link.href = jsonpScriptSrc(chunkId);",
+					"link.href = webpackPolicy.createScriptURL(jsonpScriptSrc(chunkId));",
 					crossOriginLoading
 						? Template.asString([
 								"if (link.href.indexOf(window.location.origin + '/') !== 0) {",
@@ -260,7 +260,7 @@ class JsonpMainTemplatePlugin {
 					"}",
 					'link.rel = "prefetch";',
 					'link.as = "script";',
-					"link.href = jsonpScriptSrc(chunkId);"
+					"link.href = webpackPolicy.createScriptURL(jsonpScriptSrc(chunkId));"
 				]);
 			}
 		);
@@ -354,7 +354,16 @@ class JsonpMainTemplatePlugin {
 					const withPrefetch = needPrefetchingCode(chunk);
 					return Template.asString([
 						source,
-						"",
+            "",
+            "// create webpack policy if trusted types are enabled",
+            "var rules = { createScriptURL: function(input) { return input; } }",
+            "var webpackPolicy = { rules }",
+            "if (typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {",
+            Template.indent([
+              "webpackPolicy = TrustedTypes.createPolicy('webpack', rules)"
+            ]),
+            "}",
+            "",
 						"// install a JSONP callback for chunk loading",
 						"function webpackJsonpCallback(data) {",
 						Template.indent([

@@ -1,4 +1,5 @@
 import { getEventSourceWrapper } from './error-overlay/eventsource'
+import trustedTypesPolicy from '../trusted-types-policy'
 
 export default function initializeBuildWatcher () {
   const shadowHost = document.createElement('div')
@@ -91,7 +92,7 @@ export default function initializeBuildWatcher () {
 function createContainer (prefix) {
   const container = document.createElement('div')
   container.id = `${prefix}container`
-  container.innerHTML = `
+  let html = `
     <div id="${prefix}icon-wrapper">
       <svg viewBox="0 0 226 200">
         <defs>
@@ -112,6 +113,7 @@ function createContainer (prefix) {
       </svg>
     </div>
   `
+  container.innerHTML = trustedTypesPolicy.createHTML(html)
 
   return container
 }

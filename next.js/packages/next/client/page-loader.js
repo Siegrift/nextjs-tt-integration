@@ -1,6 +1,7 @@
 /* global document */
 import mitt from 'next-server/dist/lib/mitt'
 import unfetch from 'unfetch'
+import trustedTypesPolicy from './trusted-types-policy'
 
 // smaller version of https://gist.github.com/igrigorik/a02f2359f3bc50ca7a9c
 function supportsPreload (list) {
@@ -118,7 +119,7 @@ export default class PageLoader {
       this.buildId
     )}/pages${scriptRoute}`
     script.crossOrigin = process.crossOrigin
-    script.src = url
+    script.src = trustedTypesPolicy.createScriptURL(url)
     script.onerror = () => {
       const error = new Error(`Error loading script ${url}`)
       error.code = 'PAGE_LOAD_ERROR'
