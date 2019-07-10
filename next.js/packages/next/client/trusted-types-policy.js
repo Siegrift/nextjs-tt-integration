@@ -3,7 +3,7 @@ const rules = {
   createScriptURL: (input) => input,
 }
 
-let trustedTypesPolicy = {rules}
+let trustedTypesPolicy = rules
 if (typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {
   trustedTypesPolicy = TrustedTypes.createPolicy('nextjs-client', rules)
 }

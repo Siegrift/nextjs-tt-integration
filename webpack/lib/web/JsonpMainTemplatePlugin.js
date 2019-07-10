@@ -357,7 +357,7 @@ class JsonpMainTemplatePlugin {
             "",
             "// create webpack policy if trusted types are enabled",
             "var rules = { createScriptURL: function(input) { return input; } }",
-            "var webpackPolicy = { rules }",
+            "var webpackPolicy = rules",
             "if (typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {",
             Template.indent([
               "webpackPolicy = TrustedTypes.createPolicy('webpack', rules)"
