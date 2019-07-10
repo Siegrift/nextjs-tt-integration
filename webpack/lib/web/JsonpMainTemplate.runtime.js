@@ -14,13 +14,7 @@ module.exports = function() {
 	function hotDownloadUpdateChunk(chunkId) {
 		var script = document.createElement("script");
 		script.charset = "utf-8";
-		if (typeof TrustedTypes === 'undefined' || !TrustedTypes.createPolicy) {
-			script.src = $require$.p + $hotChunkFilename$;
-		} else {
-			var rules = {createScriptURL: function(input) {return input}}
-			var webpackHotPolicy = TrustedTypes.createPolicy('webpack-hot', rules);
-			script.src = webpackHotPolicy.createScriptURL($require$.p + $hotChunkFilename$);
-		}
+		script.src = webpackPolicy.createScriptURL($require$.p + $hotChunkFilename$);
 		if ($crossOriginLoading$) script.crossOrigin = $crossOriginLoading$;
 		document.head.appendChild(script);
 	}

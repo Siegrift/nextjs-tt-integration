@@ -362,7 +362,7 @@ class JsonpMainTemplatePlugin {
             Template.indent([
               "webpackPolicy = TrustedTypes.createPolicy('webpack', rules)"
             ]),
-            "}",
+            "} else { console.warn('Trusted types are not available!') }",
             "",
 						"// install a JSONP callback for chunk loading",
 						"function webpackJsonpCallback(data) {",
