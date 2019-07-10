@@ -2,94 +2,143 @@ import React from 'react'
 import Link from 'next/link'
 import Head from '../components/head'
 import Router from 'next/router'
+import dynamic from 'next/dynamic'
+import Script from '../components/script'
 
-const Home = () => (
-  <div>
-    <Head title="Home" />
+const DynamicScript = dynamic(() => import('../components/script'), { ssr: false });
 
-    <div className="hero">
-      <h1 className="title">Welcome to Next!</h1>
-      <p className="description">
-        To get started, edit <code>pages/index.js</code> and save to reload.ss
-      </p>
+const noop = (i) => i
+const rules = {
+  createHTML: noop,
+  createURL: noop,
+}
 
-      <div className="row">
+class Home extends React.Component {
+  state = {
+    hrefText: '',
+    href: '',
+    html: '',
+    nodes: [],
+    withPolicy: true,
+    iframe: false,
+  }
+  appPolicy
+  policy = rules
+
+  componentDidMount() {
+    this.appPolicy = window.TrustedTypes.createPolicy('app-policy', rules)
+    this.policy = this.appPolicy
+  }
+
+  togglePolicy = (withPolicy) => () => {
+    if (withPolicy) {
+      this.policy = this.appPolicy
+    } else {
+      this.policy = rules
+    }
+    this.setState({withPolicy})
+  }
+
+  render() {
+    return (
+      <div>
+        <Head title="Home" />
+
+        <div>
+          <label>
+            <input
+              type="radio"
+              onChange={this.togglePolicy(true)}
+              checked={this.state.withPolicy}
+            />
+            with policy
+          </label>
+          <label>
+            <input
+              type="radio"
+              onChange={this.togglePolicy(false)}
+              checked={!this.state.withPolicy}
+            />
+            without policy
+          </label>
+        </div>
+        
+        {/* Html is not using trusted types, and it it still added to DOM without error on SSR. */}
+        <div dangerouslySetInnerHTML={{__html: '<script>console.log("GAME OVER WITH SSR");</script>'}}></div>
+
+        {/* Link is not using trusted types, but there is no error on SSR. */}
+        {/* However, you will get an error in hot reload module if you try to return to this page on client*/}
         <Link href="https://github.com/zeit/next.js#getting-started">
-          <a className="card">
-            <h3>Getting Started &rarr;</h3>
-            <p>Learn more about Next on Github and in their examples</p>
+          <a>
+            <p>Link with constant value</p>
           </a>
         </Link>
-        <Link href="https://open.segment.com/create-next-app">
-          <a className="card">
-            <h3>Examples &rarr;</h3>
-            <p>
-              Find other example boilerplates on the{' '}
-              <code>create-next-app</code> site
-            </p>
-          </a>
-        </Link>
-        <Link href="https://github.com/segmentio/create-next-app">
-          <a className="card">
-            <h3>Create Next App &rarr;</h3>
-            <p>Was this tool helpful? Let us know how we can improve it</p>
-          </a>
-        </Link>
+
+        <div>
+          {/* Router.push is using TT so you can safely change routes. */}
+          <button onClick={() => Router.push('/about')}>About route</button>
+
+          {/* This will trigger an error and nextjs will try to load it's default (trusted) error page. */}
+          <button onClick={() => Router.push('/nonExistent')}>Non-existent route</button>
+
+          {/* Possibly trigger an xss, however react SSR seems to be safe. See ./hacky.js. */}
+          <Link href='/hacky?html=<img%20src=%27x%27%20onerror="alert(1)">'>
+            <button>
+              Xss attack (without policy)
+            </button>
+          </Link>
+        </div>
+
+        {/* This will cause an violation of TT (on client) if href is not trusted. */}
+        <p>
+          <a href={this.policy.createURL(this.state.href)}>Link with custom href</a>
+          <input 
+            type="text"
+            value={this.state.hrefText}
+            onChange={(e) => this.setState({hrefText: e.target.value})}
+          />
+          <button onClick={() => this.setState((s) => ({href: s.hrefText}))}>Set href</button>
+        </p>
+
+        {/* Will try to add html dangerously dynamically. */}
+        <p>
+          Add node with dangerouslySetInnerHTML
+          <input 
+            type="text"
+            value={this.state.html}
+            onChange={(e) => this.setState({html: e.target.value})}
+          />
+          <button
+            onClick={() => this.setState((s) => ({nodes: [...s.nodes, s.html]}))}
+          >
+            Add node
+          </button>
+          {this.state.nodes.map((n, i) => (
+            // created html (TT) will be created on every render and as TT is an object, it will
+            // be treated as a change and will rerender the component.
+            // See TT_TODO in react-dom/src/client/ReactDOMComponent.js
+            <span key={i} dangerouslySetInnerHTML={{__html: this.policy.createHTML(n)}} />
+            ))}
+        </p>
+
+        {/* This is rendered differently on server and on client. */}
+        {/* <Script /> */}
+        
+        {/* React can't execute dynamic scripts: react-dom/src/client/ReactDOMComponent.js */}
+        <DynamicScript />
+        
+        {/* Will try to add iframe with srcdoc. */}
+        <p>
+          <button
+            onClick={() => this.setState({iframe: true})}
+          >
+            Add unsecure iframe
+          </button>
+          {this.state.iframe && <iframe srcDoc={this.policy.createHTML("<script>alert(0)</script>")}></iframe>}
+        </p>
       </div>
-    </div>
-
-    <div>
-      <button onClick={() => Router.push('/about')}>Change route</button>
-      <button onClick={() => Router.push('/nonExistent')}>Change to non-existent route</button>
-    </div>
-
-    <style jsx>{`
-      .hero {
-        width: 100%;
-        color: #333;
-      }
-      .title {
-        margin: 0;
-        width: 100%;
-        padding-top: 80px;
-        line-height: 1.15;
-        font-size: 48px;
-      }
-      .title,
-      .description {
-        text-align: center;
-      }
-      .row {
-        max-width: 880px;
-        margin: 80px auto 40px;
-        display: flex;
-        flex-direction: row;
-        justify-content: space-around;
-      }
-      .card {
-        padding: 18px 18px 24px;
-        width: 220px;
-        text-align: left;
-        text-decoration: none;
-        color: #434343;
-        border: 1px solid #9b9b9b;
-      }
-      .card:hover {
-        border-color: #067df7;
-      }
-      .card h3 {
-        margin: 0;
-        color: #067df7;
-        font-size: 18px;
-      }
-      .card p {
-        margin: 0;
-        padding: 12px 0 0;
-        font-size: 13px;
-        color: #333;
-      }
-    `}</style>
-  </div>
-)
+    )
+  }
+}
 
 export default Home

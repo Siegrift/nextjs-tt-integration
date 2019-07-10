@@ -11,7 +11,7 @@
 
 // const React = require('./src/React');
 console.log('Using custom version of React')
-const React = require('../../build/dist/react.development');
+const React = require('../../build/node_modules/react/cjs/react.development');
 
 // TODO: decide on the top-level export form.
 // This is hacky but makes it work with both Rollup and Jest.

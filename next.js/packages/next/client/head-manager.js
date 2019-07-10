@@ -1,3 +1,5 @@
+import trustedTypesPolicy from './trusted-types-policy'
+
 const DOMAttributeNames = {
   acceptCharset: 'accept-charset',
   className: 'class',
@@ -72,13 +74,16 @@ function reactElementToDOM ({ type, props }) {
     if (p === 'children' || p === 'dangerouslySetInnerHTML') continue
 
     const attr = DOMAttributeNames[p] || p.toLowerCase()
+    console.log('TODO: sanitize setAttribute. Passed attribute: ', p)
     el.setAttribute(attr, props[p])
   }
 
   const { children, dangerouslySetInnerHTML } = props
   if (dangerouslySetInnerHTML) {
-    el.innerHTML = dangerouslySetInnerHTML.__html || ''
+    console.log('Set to trusted', el, dangerouslySetInnerHTML.__html)
+    el.innerHTML = trustedTypesPolicy.createHTML(dangerouslySetInnerHTML.__html || '')
   } else if (children) {
+    console.log("TODO: set text content as TT")
     el.textContent = typeof children === 'string' ? children : children.join('')
   }
   return el

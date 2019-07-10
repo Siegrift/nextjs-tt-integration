@@ -1,7 +1,5 @@
-import { useRouter } from 'next/router'
-
-const Post = () => {
+const About = () => {
   return <p>About page</p>
 }
 
-export default Post
+export default About

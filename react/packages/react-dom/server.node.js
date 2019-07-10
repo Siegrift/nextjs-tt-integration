@@ -9,9 +9,7 @@
 
 'use strict';
 
-// const ReactDOMServer = require('./src/server/ReactDOMServerNode');
-console.log('Using custom reactDOM server')
-const ReactDOMServer = require('../../build/dist/react-dom-server.browser.development');
+const ReactDOMServer = require('./src/server/ReactDOMServerNode');
 
 // TODO: decide on the top-level export form.
 // This is hacky but makes it work with both Rollup and Jest

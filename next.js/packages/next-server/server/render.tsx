@@ -116,6 +116,8 @@ function render(
   let html
   let head
 
+  console.log('rendering on SS')
+
   try {
     html = renderElementToString(element)
   } finally {

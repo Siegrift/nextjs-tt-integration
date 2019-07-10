@@ -401,9 +401,22 @@ export default class Router implements BaseRouter {
             //  1. Page doesn't exists
             //  2. Page does exist in a different zone
             //  3. Internal error while loading the page
+            
+            const rules = {
+              createURL: (input: string) => input,
+            }
+            
+            let trustedTypesPolicy = rules
+            const TT = (window as any).TrustedTypes
+            if (typeof TT !== 'undefined' && TT.createPolicy) {
+              // it's ok to create a policy here as the page will be reloaded afterwards
+              trustedTypesPolicy = TT.createPolicy('nextjs-server', rules)
+            } else {
+              console.warn('Trusted types are not available!')
+            }            
 
             // So, doing a hard reload is the proper way to deal with this.
-            window.location.href = as
+            window.location.href = trustedTypesPolicy.createURL(as)
 
             // Changing the URL doesn't block executing the current code path.
             // So, we need to mark it as a cancelled error and stop the routing logic.

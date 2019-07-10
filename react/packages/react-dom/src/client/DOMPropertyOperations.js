@@ -133,7 +133,9 @@ export function setValueForProperty(
       if (value === null) {
         node.removeAttribute(attributeName);
       } else {
-        node.setAttribute(attributeName, '' + (value: any));
+        // why '' + value??? this breaks TT
+        // node.setAttribute(attributeName, '' + (value: any));
+        node.setAttribute(attributeName, (value: any));
       }
     }
     return;

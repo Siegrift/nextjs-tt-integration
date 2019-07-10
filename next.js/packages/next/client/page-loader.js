@@ -196,9 +196,9 @@ export default class PageLoader {
       const link = document.createElement('link')
       link.rel = 'preload'
       link.crossOrigin = process.crossOrigin
-      link.href = `${this.assetPrefix}/_next/static/${encodeURIComponent(
-        this.buildId
-      )}/pages${scriptRoute}`
+      link.href = trusted.createScriptURL(
+        `${this.assetPrefix}/_next/static/${encodeURIComponent(this.buildId)}/pages${scriptRoute}`
+      )
       link.as = 'script'
       document.head.appendChild(link)
       return
