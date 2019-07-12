@@ -763,7 +763,7 @@ export function diffProperties(
       if (nextHtml != null) {
         if (lastHtml !== nextHtml) {
           // '' + nextHtml causes TT to be casted to string (which causes violation when updating react tree)
-          // TT_TODO: can we just use nextHtml?
+          // TT_TODO: can we just use nextHtml? Is it really the only place?
           (updatePayload = updatePayload || []).push(propKey, nextHtml);
         }
       } else {
