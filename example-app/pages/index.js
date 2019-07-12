@@ -80,11 +80,23 @@ class Home extends React.Component {
 
           {/* This will trigger an error and nextjs will try to load it's default (trusted) error page. */}
           <button onClick={() => Router.push('/nonExistent')}>Non-existent route</button>
+        </div>
 
-          {/* Possibly trigger an xss, however react SSR seems to be safe. See ./hacky.js. */}
-          <Link href='/hacky?html=<img%20src=%27x%27%20onerror="alert(1)">'>
+        <div>
+          {/* Trigger xss */}
+          <Link href='/xss-hacky1?html=<img%20src=%27x%27%20onerror="alert(1)">'>
             <button>
-              Xss attack (without policy)
+              Xss 1 (with policy)
+            </button>
+          </Link>
+          <Link href='/xss-hacky2?html=<img%20src=%27x%27%20onerror="alert(1)">'>
+            <button>
+              Xss 2 (with policy)
+            </button>
+          </Link>
+          <Link href='/xss-hacky3?html=<img%20src=%27x%27%20onerror="alert(1)">'>
+            <button>
+              Xss 3 (with policy)
             </button>
           </Link>
         </div>

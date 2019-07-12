@@ -1,6 +1,6 @@
 import { useRouter } from 'next/router'
 
-const Hacky = (props) => {
+const Hacky1 = (props) => {
   // try URL: http://localhost:3000/xss-hacky?html=<img src=x onerror="alert(1)">
   // React SSR seems to be ready for this and despite knowing the query on the server
   // will just render an empty paragraph. The inner html will be set on client
@@ -8,6 +8,6 @@ const Hacky = (props) => {
   return <p dangerouslySetInnerHTML={{__html: props.url.query.html}}/>
 }
 
-Hacky.getInitialProps = () => ({})
+Hacky1.getInitialProps = () => ({})
 
-export default Hacky
+export default Hacky1
