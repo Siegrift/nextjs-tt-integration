@@ -410,7 +410,7 @@ export default class Router implements BaseRouter {
             const TT = (window as any).TrustedTypes
             if (typeof TT !== 'undefined' && TT.createPolicy) {
               // it's ok to create a policy here as the page will be reloaded afterwards
-              trustedTypesPolicy = TT.createPolicy('nextjs-server', rules)
+              trustedTypesPolicy = TT.createPolicy('nextjs-router', rules)
             } else {
               console.warn('Trusted types are not available!')
             }            

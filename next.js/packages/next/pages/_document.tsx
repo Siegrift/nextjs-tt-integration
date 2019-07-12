@@ -13,6 +13,7 @@ import {
   CLIENT_STATIC_FILES_RUNTIME_AMP,
   CLIENT_STATIC_FILES_RUNTIME_WEBPACK,
 } from 'next-server/constants'
+import trustedTypesPolicy from '../server/trustedTypesPolicy'
 
 export { DocumentContext, DocumentInitialProps, DocumentProps }
 
@@ -146,7 +147,7 @@ export class Head extends Component<
           key={file}
           nonce={this.props.nonce}
           rel="stylesheet"
-          href={`${assetPrefix}/_next/${file}`}
+          href={trustedTypesPolicy.createURL(`${assetPrefix}/_next/${file}`)}
           crossOrigin={this.props.crossOrigin || process.crossOrigin}
         />
       )
@@ -162,9 +163,9 @@ export class Head extends Component<
         <link
           rel="preload"
           key={bundle.file}
-          href={`${assetPrefix}/_next/${
+          href={trustedTypesPolicy.createURL(`${assetPrefix}/_next/${
             bundle.file
-          }${_devOnlyInvalidateCacheQueryString}`}
+          }${_devOnlyInvalidateCacheQueryString}`)}
           as="script"
           nonce={this.props.nonce}
           crossOrigin={this.props.crossOrigin || process.crossOrigin}
@@ -185,13 +186,12 @@ export class Head extends Component<
       if (!/\.js$/.exec(file)) {
         return null
       }
-
       return (
         <link
           key={file}
           nonce={this.props.nonce}
           rel="preload"
-          href={`${assetPrefix}/_next/${file}${_devOnlyInvalidateCacheQueryString}`}
+          href={trustedTypesPolicy.createURL(`${assetPrefix}/_next/${file}${_devOnlyInvalidateCacheQueryString}`)}
           as="script"
           crossOrigin={this.props.crossOrigin || process.crossOrigin}
         />
@@ -313,38 +313,40 @@ export class Head extends Component<
             />
             <link
               rel="canonical"
-              href={canonicalBase + cleanAmpPath(dangerousAsPath)}
+              href={trustedTypesPolicy.createURL(canonicalBase + cleanAmpPath(dangerousAsPath))}
             />
             {/* https://www.ampproject.org/docs/fundamentals/optimize_amp#optimize-the-amp-runtime-loading */}
             <link
               rel="preload"
               as="script"
-              href="https://cdn.ampproject.org/v0.js"
+              href={trustedTypesPolicy.createURL("https://cdn.ampproject.org/v0.js")}
             />
             {/* Add custom styles before AMP styles to prevent accidental overrides */}
             {styles && (
               <style
                 amp-custom=""
                 dangerouslySetInnerHTML={{
-                  __html: curStyles
-                    .map(style => style.props.dangerouslySetInnerHTML.__html)
-                    .join('')
-                    .replace(/\/\*# sourceMappingURL=.*\*\//g, '')
-                    .replace(/\/\*@ sourceURL=.*?\*\//g, ''),
+                  __html: trustedTypesPolicy.createHTML(
+                    curStyles
+                      .map(style => style.props.dangerouslySetInnerHTML.__html)
+                      .join('')
+                      .replace(/\/\*# sourceMappingURL=.*\*\//g, '')
+                      .replace(/\/\*@ sourceURL=.*?\*\//g, '')
+                  ),
                 }}
               />
             )}
             <style
               amp-boilerplate=""
               dangerouslySetInnerHTML={{
-                __html: `body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}`,
+                __html: trustedTypesPolicy.createHTML(`body{-webkit-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-moz-animation:-amp-start 8s steps(1,end) 0s 1 normal both;-ms-animation:-amp-start 8s steps(1,end) 0s 1 normal both;animation:-amp-start 8s steps(1,end) 0s 1 normal both}@-webkit-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-moz-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-ms-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@-o-keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}@keyframes -amp-start{from{visibility:hidden}to{visibility:visible}}`),
               }}
             />
             <noscript>
               <style
                 amp-boilerplate=""
                 dangerouslySetInnerHTML={{
-                  __html: `body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}`,
+                  __html: trustedTypesPolicy.createHTML(`body{-webkit-animation:none;-moz-animation:none;-ms-animation:none;animation:none}`),
                 }}
               />
             </noscript>
@@ -356,19 +358,19 @@ export class Head extends Component<
             {hybridAmp && (
               <link
                 rel="amphtml"
-                href={canonicalBase + getAmpPath(ampPath, dangerousAsPath)}
+                href={trustedTypesPolicy.createURL(canonicalBase + getAmpPath(ampPath, dangerousAsPath))}
               />
             )}
             {page !== '/_error' && (
               <link
                 rel="preload"
-                href={
+                href={trustedTypesPolicy.createURL(
                   assetPrefix +
                   (dynamicBuildId
                     ? `/_next/static/client/pages${getPageFile(page, buildId)}`
                     : `/_next/static/${buildId}/pages${getPageFile(page)}`) +
                   _devOnlyInvalidateCacheQueryString
-                }
+                )}
                 as="script"
                 nonce={this.props.nonce}
                 crossOrigin={this.props.crossOrigin || process.crossOrigin}
@@ -376,13 +378,13 @@ export class Head extends Component<
             )}
             <link
               rel="preload"
-              href={
+              href={trustedTypesPolicy.createURL(
                 assetPrefix +
                 (dynamicBuildId
                   ? `/_next/static/client/pages/_app.${buildId}.js`
                   : `/_next/static/${buildId}/pages/_app.js`) +
                 _devOnlyInvalidateCacheQueryString
-              }
+              )}
               as="script"
               nonce={this.props.nonce}
               crossOrigin={this.props.crossOrigin || process.crossOrigin}
@@ -409,7 +411,7 @@ export class Main extends Component {
   render() {
     const { inAmpMode, html } = this.context._documentProps
     if (inAmpMode) return '__NEXT_AMP_RENDER_TARGET__'
-    return <div id="__next" dangerouslySetInnerHTML={{ __html: html }} />
+    return <div id="__next" dangerouslySetInnerHTML={{ __html: trustedTypesPolicy.createHTML(html) }} />
   }
 }
 
@@ -516,8 +518,9 @@ export class NextScript extends Component<OriginProps> {
               nonce={this.props.nonce}
               crossOrigin={this.props.crossOrigin || process.crossOrigin}
               dangerouslySetInnerHTML={{
-                __html: NextScript.getInlineScriptSource(
-                  this.context._documentProps
+                __html: trustedTypesPolicy.createHTML(NextScript.getInlineScriptSource(
+                    this.context._documentProps
+                  )
                 ),
               }}
               data-amp-development-mode-only
@@ -569,8 +572,9 @@ export class NextScript extends Component<OriginProps> {
             nonce={this.props.nonce}
             crossOrigin={this.props.crossOrigin || process.crossOrigin}
             dangerouslySetInnerHTML={{
-              __html: NextScript.getInlineScriptSource(
-                this.context._documentProps
+              __html: trustedTypesPolicy.createHTML(NextScript.getInlineScriptSource(
+                  this.context._documentProps
+                )
               ),
             }}
           />

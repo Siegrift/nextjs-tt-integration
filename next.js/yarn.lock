@@ -1972,6 +1972,11 @@
   resolved "https://registry.yarnpkg.com/@types/text-table/-/text-table-0.2.1.tgz#39c4d4a058a82f677392dfd09976e83d9b4c9264"
   integrity sha512-dchbFCWfVgUSWEvhOkXGS7zjm+K7jCUvGrQkAHPk2Fmslfofp4HQTH2pqnQ3Pw5GPYv0zWa2AQjKtsfZThuemQ==
 
+"@types/trusted-types@1.0.1":
+  version "1.0.1"
+  resolved "https://registry.yarnpkg.com/@types/trusted-types/-/trusted-types-1.0.1.tgz#e517bd4496e0fc75a8c88047c5bb437942148993"
+  integrity sha512-+T99Y+JC3wc1e0BTBC8l60Pk4FNs5ynCWPZidAIbN07f2LjYRmlmoT5n0JybL9X0ghSFL/oUiYm3+YNR8WXPPA==
+
 "@types/uglify-js@*":
   version "3.0.4"
   resolved "https://registry.yarnpkg.com/@types/uglify-js/-/uglify-js-3.0.4.tgz#96beae23df6f561862a830b4288a49e86baac082"
@@ -12476,6 +12481,11 @@ trough@^1.0.0:
   integrity sha512-m6s2OdQe5wgpFMC+pAJ+q9djG82O2jcHPOI6RNg1yy9rCYR+WD6Nbpl32fDpfC56nirdRy+opFa/Vk7HYhqaew==
   dependencies:
     glob "^7.1.2"
+
+trusted-types@1.0.6, trusted-types@^1.0.6:
+  version "1.0.6"
+  resolved "https://registry.yarnpkg.com/trusted-types/-/trusted-types-1.0.6.tgz#cd23ae5fa5b5a250f5a2d9afba670e3551e5c84a"
+  integrity sha512-9T8mTqtmL3hH9g6FiduE0zplGuEWa/4Jg3vVwUIpdgw9twQN5lon9cbSgJsb3moPsR/6ejqUvWYZa3oydcPuWQ==
 
 tryer@^1.0.0:
   version "1.0.1"

@@ -83,7 +83,7 @@ function reactElementToDOM ({ type, props }) {
     console.log('Set to trusted', el, dangerouslySetInnerHTML.__html)
     el.innerHTML = trustedTypesPolicy.createHTML(dangerouslySetInnerHTML.__html || '')
   } else if (children) {
-    console.log("TODO: set text content as TT")
+    console.log("TT_TODO: set text content as TT")
     el.textContent = typeof children === 'string' ? children : children.join('')
   }
   return el

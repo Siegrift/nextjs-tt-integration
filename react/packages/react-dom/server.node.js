@@ -9,6 +9,9 @@
 
 'use strict';
 
+// This gets included in the built module
+const trustedTypes = require('trusted-types');
+
 const ReactDOMServer = require('./src/server/ReactDOMServerNode');
 
 // TODO: decide on the top-level export form.
