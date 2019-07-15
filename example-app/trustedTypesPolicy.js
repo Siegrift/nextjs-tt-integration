@@ -19,7 +19,7 @@ export const getPolicy = () => {
   if (withTrustedTypes && appPolicy === undefined) {
     appPolicy = window.TrustedTypes.createPolicy('app-policy', rules)
   }
-  
+
   if (withTrustedTypes) return appPolicy
   else return rules
 }

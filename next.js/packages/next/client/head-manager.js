@@ -80,10 +80,10 @@ function reactElementToDOM ({ type, props }) {
 
   const { children, dangerouslySetInnerHTML } = props
   if (dangerouslySetInnerHTML) {
-    console.log('Set to trusted', el, dangerouslySetInnerHTML.__html)
+    // console.log('TT_TODO: Set to trusted', el, dangerouslySetInnerHTML.__html)
     el.innerHTML = trustedTypesPolicy.createHTML(dangerouslySetInnerHTML.__html || '')
   } else if (children) {
-    console.log("TT_TODO: set text content as TT")
+    // console.log("TT_TODO: set text content as TT")
     el.textContent = typeof children === 'string' ? children : children.join('')
   }
   return el
