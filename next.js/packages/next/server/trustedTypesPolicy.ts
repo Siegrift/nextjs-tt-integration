@@ -5,11 +5,13 @@ const rules = {
   createURL: (input) => input,
 }
 
-let trustedTypesPolicy = rules
-if (typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {
-  trustedTypesPolicy = TrustedTypes.createPolicy('nextjs-server', rules)
-} else {
-  console.warn('Trusted types are not available!')
+if (global.trustedTypesPolicy === undefined) {
+  global.trustedTypesPolicy = rules
+  if (typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {
+    global.trustedTypesPolicy = TrustedTypes.createPolicy('nextjs-server', rules)
+  } else {
+    console.warn('Trusted types are not available!')
+  }
 }
 
-export default trustedTypesPolicy
+export default global.trustedTypesPolicy
