@@ -9,8 +9,8 @@
 
 'use strict';
 
-// This gets included in the built module
-const trustedTypes = require('trusted-types');
+// This gets included in the built module and importing it in ./ReactDOM doesn't
+global.TrustedTypes = require('trusted-types');
 
 const ReactDOMServer = require('./src/server/ReactDOMServerNode');
 
