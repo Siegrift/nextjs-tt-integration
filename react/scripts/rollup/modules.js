@@ -11,12 +11,13 @@ const UMD_PROFILING = bundleTypes.UMD_PROFILING;
 // specify whether it has side effects during import or not. This lets
 // us know whether we can safely omit them when they are unused.
 const HAS_NO_SIDE_EFFECTS_ON_IMPORT = false;
+// const HAS_SIDE_EFFECTS_ON_IMPORT = true;
 const importSideEffects = Object.freeze({
   'prop-types/checkPropTypes': HAS_NO_SIDE_EFFECTS_ON_IMPORT,
   deepFreezeAndThrowOnMutationInDev: HAS_NO_SIDE_EFFECTS_ON_IMPORT,
   scheduler: HAS_NO_SIDE_EFFECTS_ON_IMPORT,
   'scheduler/tracing': HAS_NO_SIDE_EFFECTS_ON_IMPORT,
-  'trusted-types': HAS_NO_SIDE_EFFECTS_ON_IMPORT
+  'trusted-types': HAS_NO_SIDE_EFFECTS_ON_IMPORT,
 });
 
 // Bundles exporting globals that other modules rely on.

@@ -113,7 +113,7 @@ export function getValueForAttribute(
  * @param {string} name
  * @param {*} value
  */
-// TT_TODO: proper handling of attributes in this funciton
+// TT_TODO: proper handling of attributes in this function
 export function setValueForProperty(
   node: Element,
   name: string,
@@ -134,7 +134,6 @@ export function setValueForProperty(
       if (value === null) {
         node.removeAttribute(attributeName);
       } else {
-        // node.setAttribute(attributeName, '' + (value: any));
         node.setAttribute(attributeName, (value: any));
       }
     }

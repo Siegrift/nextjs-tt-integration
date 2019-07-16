@@ -33,7 +33,7 @@ let setTextContent = function(node: Element, text: string): void {
     }
   }
   // console.log('TT_TODO: if node is script, iframe...', node, text);
-  // we can trust that the script won't be executed
+  // we can trust that the script won't be executed on client
   if (node.tagName === 'SCRIPT') node.textContent = trustedTypePolicy.createScript(text)
   else node.textContent = text;
 };

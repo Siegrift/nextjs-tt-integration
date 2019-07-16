@@ -9,7 +9,7 @@
 
 'use strict';
 
-//const ReactDOM = require('./src/client/ReactDOM');
+// const ReactDOM = require('./src/client/ReactDOM');
 console.log('Using custom version of ReactDOM')
 const ReactDOM = require('../../build/node_modules/react-dom/cjs/react-dom.development');
 
