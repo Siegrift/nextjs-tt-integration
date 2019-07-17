@@ -1094,7 +1094,7 @@ export interface OutputOptions {
 	/**
 	 * Algorithm used for generation the hash (see node.js crypto package)
 	 */
-	hashFunction?: string | (new () => import("../lib/util/createHash").Hash);
+	hashFunction?: string | import("../lib/util/createHash").HashConstructor;
 	/**
 	 * Any string which is added to the hash to salt it
 	 */
@@ -1170,6 +1170,10 @@ export interface OutputOptions {
 	 * Handles exceptions in module loading correctly at a performance cost.
 	 */
 	strictModuleExceptionHandling?: boolean;
+	/**
+	 * The name of the trusted types policy created by webpack to serve bundle chunks.
+	 */
+	trustedTypesPolicyName?: string;
 	/**
 	 * If `output.libraryTarget` is set to umd and `output.library` is set, setting this to true will name the AMD module.
 	 */

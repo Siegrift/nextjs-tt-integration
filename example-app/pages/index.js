@@ -4,7 +4,7 @@ import React from 'react'
 import Head from '../components/head'
 import Router from 'next/router'
 import dynamic from 'next/dynamic'
-import {getPolicy, togglePolicy} from '../trustedTypesPolicy'
+import {getPolicy} from '../trustedTypesPolicy'
 
 const DynamicScript = dynamic(() => import('./script'), { ssr: false });
 

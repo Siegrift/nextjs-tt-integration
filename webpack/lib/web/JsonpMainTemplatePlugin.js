@@ -9,7 +9,6 @@ const Template = require("../Template");
 
 class JsonpMainTemplatePlugin {
 	apply(mainTemplate) {
-    console.log('Using custom Webpack')
 		const needChunkOnDemandLoadingCode = chunk => {
 			for (const chunkGroup of chunk.groupsIterable) {
 				if (chunkGroup.getNumberOfChildren() > 0) return true;
@@ -163,8 +162,8 @@ class JsonpMainTemplatePlugin {
 					Template.indent(
 						`script.setAttribute("nonce", ${mainTemplate.requireFn}.nc);`
 					),
-          "}",
-          "script.src = webpackPolicy.createScriptURL(jsonpScriptSrc(chunkId));",
+					"}",
+					"script.src = getPolicy().createScriptURL(jsonpScriptSrc(chunkId));",
 					crossOriginLoading
 						? Template.asString([
 								"if (script.src.indexOf(window.location.origin + '/') !== 0) {",
@@ -229,7 +228,7 @@ class JsonpMainTemplatePlugin {
 					"}",
 					'link.rel = "preload";',
 					'link.as = "script";',
-					"link.href = webpackPolicy.createScriptURL(jsonpScriptSrc(chunkId));",
+					"link.href = getPolicy().createURL(jsonpScriptSrc(chunkId));",
 					crossOriginLoading
 						? Template.asString([
 								"if (link.href.indexOf(window.location.origin + '/') !== 0) {",
@@ -260,7 +259,7 @@ class JsonpMainTemplatePlugin {
 					"}",
 					'link.rel = "prefetch";',
 					'link.as = "script";',
-					"link.href = webpackPolicy.createScriptURL(jsonpScriptSrc(chunkId));"
+					"link.href = getPolicy().createURL(jsonpScriptSrc(chunkId));"
 				]);
 			}
 		);
@@ -354,16 +353,35 @@ class JsonpMainTemplatePlugin {
 					const withPrefetch = needPrefetchingCode(chunk);
 					return Template.asString([
 						source,
-            "",
-            "// create webpack policy if trusted types are enabled",
-            "var rules = { createScriptURL: function(input) { return input; } }",
-            "var webpackPolicy = rules",
-            "if (typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {",
-            Template.indent([
-              "webpackPolicy = TrustedTypes.createPolicy('webpack', rules)"
-            ]),
-            "} else { console.warn('Trusted types are not available!') }",
-            "",
+						"",
+						"var rules = {",
+						Template.indent([
+							"createScriptURL: function(input) {",
+							Template.indent("return input;"),
+							"},",
+							"createURL: function(input) {",
+							Template.indent("return input;"),
+							"}"
+						]),
+						"}",
+						"var trustedTypesPolicy;",
+						"function getPolicy() {",
+						Template.indent([
+							"// create trusted type policy if trusted types are enabled in global object and policy doesn't exist yet",
+							"if (trustedTypesPolicy === undefined && typeof TrustedTypes !== 'undefined' && TrustedTypes.createPolicy) {",
+							Template.indent([
+								"trustedTypesPolicy = TrustedTypes.createPolicy(trustedTypesPolicyName, rules)"
+							]),
+							"}",
+							"",
+							"if (trustedTypesPolicy) {",
+							Template.indent("return trustedTypesPolicy"),
+							"} else {",
+							Template.indent("return rules"),
+							"}"
+						]),
+						"}",
+						"",
 						"// install a JSONP callback for chunk loading",
 						"function webpackJsonpCallback(data) {",
 						Template.indent([
@@ -499,6 +517,8 @@ class JsonpMainTemplatePlugin {
 				if (needChunkLoadingCode(chunk)) {
 					var jsonpFunction = mainTemplate.outputOptions.jsonpFunction;
 					var globalObject = mainTemplate.outputOptions.globalObject;
+					var trustedTypesPolicyName =
+						mainTemplate.outputOptions.trustedTypesPolicyName;
 					return Template.asString([
 						`var jsonpArray = ${globalObject}[${JSON.stringify(
 							jsonpFunction
@@ -508,6 +528,7 @@ class JsonpMainTemplatePlugin {
 						"jsonpArray = jsonpArray.slice();",
 						"for(var i = 0; i < jsonpArray.length; i++) webpackJsonpCallback(jsonpArray[i]);",
 						"var parentJsonpFunction = oldJsonpFunction;",
+						`var trustedTypesPolicyName = "${trustedTypesPolicyName}"`,
 						"",
 						source
 					]);
