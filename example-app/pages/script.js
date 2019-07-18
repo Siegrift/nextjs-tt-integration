@@ -1,6 +1,9 @@
+import {getPolicy} from '../trustedTypesPolicy'
+
 const Script = () => {
   {/* This is rendered differently on server and on client. */}
-  return <script>alert('Not gonna happen bro!')</script>
+  return <script dangerouslySetInnerHTML={{__html: getPolicy().createHTML("alert('Not gonna happen bro!')")}}/>
+  return <div></div>
 }
 
 export default Script

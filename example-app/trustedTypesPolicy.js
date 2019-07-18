@@ -2,6 +2,7 @@ const noop = (i) => i
 const rules = {
   createHTML: noop,
   createURL: noop,
+  createScript: noop,
 }
 
 let appPolicy
@@ -9,6 +10,7 @@ let withTrustedTypes = true
 
 export const getPolicy = () => {
   if (!process.browser) {
+    throw new Error('Not running in browser! TT works only on React clientside');
     if (global.APP_SSR_POLICY) appPolicy = global.APP_SSR_POLICY
     else {
       appPolicy = global.TrustedTypes.createPolicy('app-ssr-policy', rules)
