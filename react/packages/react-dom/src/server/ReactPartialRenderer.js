@@ -22,6 +22,7 @@ import ReactSharedInternals from 'shared/ReactSharedInternals';
 import {
   warnAboutDeprecatedLifecycles,
   enableSuspenseServerRenderer,
+  enableFlareAPI,
 } from 'shared/ReactFeatureFlags';
 
 import {
@@ -30,12 +31,14 @@ import {
   REACT_STRICT_MODE_TYPE,
   REACT_CONCURRENT_MODE_TYPE,
   REACT_SUSPENSE_TYPE,
+  REACT_SUSPENSE_LIST_TYPE,
   REACT_PORTAL_TYPE,
   REACT_PROFILER_TYPE,
   REACT_PROVIDER_TYPE,
   REACT_CONTEXT_TYPE,
   REACT_LAZY_TYPE,
   REACT_MEMO_TYPE,
+  REACT_EVENT_COMPONENT_TYPE,
 } from 'shared/ReactSymbols';
 
 import {
@@ -179,6 +182,7 @@ let didWarnDefaultTextareaValue = false;
 let didWarnInvalidOptionChildren = false;
 const didWarnAboutNoopUpdateForComponent = {};
 const didWarnAboutBadClass = {};
+const didWarnAboutModulePatternComponent = {};
 const didWarnAboutDeprecatedWillMount = {};
 const didWarnAboutUndefinedDerivedState = {};
 const didWarnAboutUninitializedState = {};
@@ -273,9 +277,6 @@ function getNonChildrenInnerMarkup(props) {
   const innerHTML = props.dangerouslySetInnerHTML;
   if (innerHTML != null) {
     if (innerHTML.__html != null) {
-      if (innerHTML.__html.constructor.name !== 'TrustedHTML') {
-        throw new Error("Encountered untrusted html: " + innerHTML.__html)
-      }
       return innerHTML.__html;
     }
   } else {
@@ -528,6 +529,24 @@ function resolve(
         validateRenderResult(child, Component);
         return;
       }
+
+      if (__DEV__) {
+        const componentName = getComponentName(Component) || 'Unknown';
+        if (!didWarnAboutModulePatternComponent[componentName]) {
+          warningWithoutStack(
+            false,
+            'The <%s /> component appears to be a function component that returns a class instance. ' +
+              'Change %s to a class that extends React.Component instead. ' +
+              "If you can't use a class try assigning the prototype on the function as a workaround. " +
+              "`%s.prototype = React.Component.prototype`. Don't use an arrow function since it " +
+              'cannot be called with `new` by React.',
+            componentName,
+            componentName,
+            componentName,
+          );
+          didWarnAboutModulePatternComponent[componentName] = true;
+        }
+      }
     }
 
     inst.props = element.props;
@@ -553,13 +572,12 @@ function resolve(
             if (!didWarnAboutDeprecatedWillMount[componentName]) {
               lowPriorityWarning(
                 false,
-                '%s: componentWillMount() is deprecated and will be ' +
-                  'removed in the next major version. Read about the motivations ' +
-                  'behind this change: ' +
-                  'https://fb.me/react-async-component-lifecycle-hooks' +
-                  '\n\n' +
-                  'As a temporary workaround, you can rename to ' +
-                  'UNSAFE_componentWillMount instead.',
+                // keep this warning in sync with ReactStrictModeWarning.js
+                'componentWillMount has been renamed, and is not recommended for use. ' +
+                  'See https://fb.me/react-async-component-lifecycle-hooks for details.\n\n' +
+                  '* Move code from componentWillMount to componentDidMount (preferred in most cases) ' +
+                  'or the constructor.\n' +
+                  '\nPlease update the following components: %s',
                 componentName,
               );
               didWarnAboutDeprecatedWillMount[componentName] = true;
@@ -838,6 +856,7 @@ class ReactDOMServerRenderer {
                 'suspense fallback not found, something is broken',
               );
               this.stack.push(fallbackFrame);
+              out[this.suspenseDepth] += '<!--$!-->';
               // Skip flushing output since we're switching to the fallback
               continue;
             } else {
@@ -949,6 +968,7 @@ class ReactDOMServerRenderer {
         case REACT_STRICT_MODE_TYPE:
         case REACT_CONCURRENT_MODE_TYPE:
         case REACT_PROFILER_TYPE:
+        case REACT_SUSPENSE_LIST_TYPE:
         case REACT_FRAGMENT_TYPE: {
           const nextChildren = toArray(
             ((nextChild: any): ReactElement).props.children,
@@ -999,8 +1019,7 @@ class ReactDOMServerRenderer {
               children: fallbackChildren,
               childIndex: 0,
               context: context,
-              footer: '',
-              out: '',
+              footer: '<!--/$-->',
             };
             const frame: Frame = {
               fallbackFrame,
@@ -1146,6 +1165,31 @@ class ReactDOMServerRenderer {
             this.stack.push(frame);
             return '';
           }
+          case REACT_EVENT_COMPONENT_TYPE: {
+            if (enableFlareAPI) {
+              const nextChildren = toArray(
+                ((nextChild: any): ReactElement).props.children,
+              );
+              const frame: Frame = {
+                type: null,
+                domNamespace: parentNamespace,
+                children: nextChildren,
+                childIndex: 0,
+                context: context,
+                footer: '',
+              };
+              if (__DEV__) {
+                ((frame: any): FrameDev).debugElementStack = [];
+              }
+              this.stack.push(frame);
+              return '';
+            }
+            invariant(
+              false,
+              'ReactDOMServer does not yet support the event API.',
+            );
+          }
+          // eslint-disable-next-line-no-fallthrough
           case REACT_LAZY_TYPE:
             invariant(
               false,

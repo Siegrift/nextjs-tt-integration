@@ -17,6 +17,7 @@ import {
   shouldIgnoreAttribute,
   shouldRemoveAttribute,
 } from '../shared/DOMProperty';
+import sanitizeURL from '../shared/sanitizeURL';
 import quoteAttributeValueForBrowser from './quoteAttributeValueForBrowser';
 
 /**
@@ -52,17 +53,16 @@ export function createMarkupForProperty(name: string, value: mixed): string {
   if (shouldRemoveAttribute(name, value, propertyInfo, false)) {
     return '';
   }
-
-  // TT_TODO: proper hadling of attributes
-  if (name === 'href' && value.constructor.name !== 'TrustedURL') throw new Error("Encountered untrusted url: " + value);
-  if (name === 'srcDoc' && value.constructor.name !== 'TrustedHTML') throw new Error("Encountered untrusted html: " + value);
-
   if (propertyInfo !== null) {
     const attributeName = propertyInfo.attributeName;
     const {type} = propertyInfo;
     if (type === BOOLEAN || (type === OVERLOADED_BOOLEAN && value === true)) {
       return attributeName + '=""';
     } else {
+      if (propertyInfo.sanitizeURL) {
+        value = '' + (value: any);
+        sanitizeURL(value);
+      }
       return attributeName + '=' + quoteAttributeValueForBrowser(value);
     }
   } else if (isAttributeNameSafe(name)) {

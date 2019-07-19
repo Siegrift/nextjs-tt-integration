@@ -23,7 +23,7 @@ const packages = readdirSync(packagesRoot).filter(dir => {
 const moduleNameMapper = {};
 
 // Allow bundle tests to read (but not write!) default feature flags.
-// This lets us determine whether we're running in Fire mode
+// This lets us determine whether we're running in different modes
 // without making relevant tests internal-only.
 moduleNameMapper[
   '^shared/ReactFeatureFlags'
@@ -35,7 +35,7 @@ packages.forEach(name => {
   moduleNameMapper[`^${name}$`] = `<rootDir>/build/node_modules/${name}`;
   // Named entry points
   moduleNameMapper[
-    `^${name}/(.*)$`
+    `^${name}\/([^\/]+)$`
   ] = `<rootDir>/build/node_modules/${name}/$1`;
 });
 
@@ -46,4 +46,8 @@ module.exports = Object.assign({}, baseConfig, {
   testPathIgnorePatterns: ['/node_modules/', '-test.internal.js$'],
   // Exclude the build output from transforms
   transformIgnorePatterns: ['/node_modules/', '<rootDir>/build/'],
+  setupFiles: [
+    ...baseConfig.setupFiles,
+    require.resolve('./setupTests.build.js'),
+  ],
 });

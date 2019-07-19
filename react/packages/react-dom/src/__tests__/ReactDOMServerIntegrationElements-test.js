@@ -16,17 +16,20 @@ const TEXT_NODE_TYPE = 3;
 let React;
 let ReactDOM;
 let ReactDOMServer;
+let ReactTestUtils;
 
 function initModules() {
   jest.resetModuleRegistry();
   React = require('react');
   ReactDOM = require('react-dom');
   ReactDOMServer = require('react-dom/server');
+  ReactTestUtils = require('react-dom/test-utils');
 
   // Make them available to the helpers.
   return {
     ReactDOM,
     ReactDOMServer,
+    ReactTestUtils,
   };
 }
 
@@ -644,7 +647,7 @@ describe('ReactDOMServerIntegration', () => {
             },
           };
         };
-        checkFooDiv(await render(<FactoryComponent />));
+        checkFooDiv(await render(<FactoryComponent />, 1));
       });
     });
 

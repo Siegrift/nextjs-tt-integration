@@ -138,7 +138,7 @@ const DynamicHome = dynamic(() => import('./dynHome'), { ssr: false });
 const Comp = () => (
   <div>
     <Head title="Home" />
-    sss
+    sssss
     <DynamicHome />
   </div>
 )

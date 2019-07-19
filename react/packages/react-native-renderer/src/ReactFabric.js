@@ -15,9 +15,10 @@ import './ReactFabricInjection';
 import {
   findHostInstance,
   findHostInstanceWithWarning,
+  batchedEventUpdates,
   batchedUpdates as batchedUpdatesImpl,
-  interactiveUpdates,
-  flushInteractiveUpdates,
+  discreteUpdates,
+  flushDiscreteUpdates,
   createContainer,
   updateContainer,
   injectIntoDevTools,
@@ -33,9 +34,12 @@ import ReactNativeComponent from './ReactNativeComponent';
 import {getClosestInstanceFromNode} from './ReactFabricComponentTree';
 import {getInspectorDataForViewTag} from './ReactNativeFiberInspector';
 
+import {LegacyRoot} from 'shared/ReactRootTags';
 import ReactSharedInternals from 'shared/ReactSharedInternals';
 import getComponentName from 'shared/getComponentName';
 import warningWithoutStack from 'shared/warningWithoutStack';
+
+const {dispatchCommand: fabricDispatchCommand} = nativeFabricUIManager;
 
 const ReactCurrentOwner = ReactSharedInternals.ReactCurrentOwner;
 
@@ -93,8 +97,9 @@ function findNodeHandle(componentOrHandle: any): ?number {
 
 setBatchingImplementation(
   batchedUpdatesImpl,
-  interactiveUpdates,
-  flushInteractiveUpdates,
+  discreteUpdates,
+  flushDiscreteUpdates,
+  batchedEventUpdates,
 );
 
 const roots = new Map();
@@ -104,13 +109,42 @@ const ReactFabric: ReactFabricType = {
 
   findNodeHandle,
 
+  setNativeProps(handle: any, nativeProps: Object) {
+    warningWithoutStack(
+      false,
+      'Warning: setNativeProps is not currently supported in Fabric',
+    );
+
+    return;
+  },
+
+  dispatchCommand(handle: any, command: string, args: Array<any>) {
+    const invalid =
+      handle._nativeTag == null || handle._internalInstanceHandle == null;
+
+    if (invalid) {
+      warningWithoutStack(
+        !invalid,
+        "dispatchCommand was called with a ref that isn't a " +
+          'native component. Use React.forwardRef to get access to the underlying native component',
+      );
+      return;
+    }
+
+    fabricDispatchCommand(
+      handle._internalInstanceHandle.stateNode.node,
+      command,
+      args,
+    );
+  },
+
   render(element: React$Element<any>, containerTag: any, callback: ?Function) {
     let root = roots.get(containerTag);
 
     if (!root) {
       // TODO (bvaughn): If we decide to keep the wrapper component,
       // We could create a wrapper for containerTag as well to reduce special casing.
-      root = createContainer(containerTag, false, false);
+      root = createContainer(containerTag, LegacyRoot, false);
       roots.set(containerTag, root);
     }
     updateContainer(element, root, null, callback);

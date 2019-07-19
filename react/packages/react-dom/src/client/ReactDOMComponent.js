@@ -13,7 +13,9 @@ import {registrationNameModules} from 'events/EventPluginRegistry';
 import warning from 'shared/warning';
 import {canUseDOM} from 'shared/ExecutionEnvironment';
 import warningWithoutStack from 'shared/warningWithoutStack';
-import trustedTypesPolicy from './trustedTypesPolicy';
+import endsWith from 'shared/endsWith';
+import type {DOMTopLevelEventType} from 'events/TopLevelEventTypes';
+import {setListenToResponderEventTypes} from '../events/DOMEventResponderSystem';
 
 import {
   getValueForAttribute,
@@ -58,7 +60,12 @@ import {
   TOP_SUBMIT,
   TOP_TOGGLE,
 } from '../events/DOMTopLevelEventTypes';
-import {listenTo, trapBubbledEvent} from '../events/ReactBrowserEventEmitter';
+import {
+  listenTo,
+  trapBubbledEvent,
+  getListeningSetForElement,
+} from '../events/ReactBrowserEventEmitter';
+import {trapEventForResponderEventSystem} from '../events/ReactDOMEventListener.js';
 import {mediaEventTypes} from '../events/DOMTopLevelEventTypes';
 import {
   createDangerousStringForStyles,
@@ -78,6 +85,9 @@ import possibleStandardNames from '../shared/possibleStandardNames';
 import {validateProperties as validateARIAProperties} from '../shared/ReactDOMInvalidARIAHook';
 import {validateProperties as validateInputProperties} from '../shared/ReactDOMNullInputValuePropHook';
 import {validateProperties as validateUnknownProperties} from '../shared/ReactDOMUnknownPropertyHook';
+import trustedTypesAwareToString from '../shared/trustedTypesAwareToString';
+
+import {enableFlareAPI} from 'shared/ReactFeatureFlags';
 
 let didWarnInvalidHydration = false;
 let didWarnShadyDOM = false;
@@ -249,13 +259,15 @@ if (__DEV__) {
             (parent.namespaceURI: any),
             parent.tagName,
           );
-    // Trusted because it's used to parse innerHTML only for comparison.
-    testElement.innerHTML = trustedTypesPolicy.createHTML(html);
+    testElement.innerHTML = html;
     return testElement.innerHTML;
   };
 }
 
-function ensureListeningTo(rootContainerElement, registrationName) {
+function ensureListeningTo(
+  rootContainerElement: Element | Node,
+  registrationName: string,
+): void {
   const isDocumentOrFragment =
     rootContainerElement.nodeType === DOCUMENT_NODE ||
     rootContainerElement.nodeType === DOCUMENT_FRAGMENT_NODE;
@@ -405,16 +417,7 @@ export function createElement(
       );
     }
 
-    if (type === 'script') {
-      // Create the script via .innerHTML so its "parser-inserted" flag is
-      // set to true and it does not execute
-      const div = ownerDocument.createElement('div');
-      // Trusted because react makes sure this script won't be executed
-      div.innerHTML = trustedTypesPolicy.createHTML('<script><' + '/script>'); // eslint-disable-line
-      // This is guaranteed to yield a script element.
-      const firstChild = ((div.firstChild: any): HTMLScriptElement);
-      domElement = div.removeChild(firstChild);
-    } else if (typeof props.is === 'string') {
+    if (typeof props.is === 'string') {
       // $FlowIssue `createElement` should be updated for Web Components
       domElement = ownerDocument.createElement(type, {is: props.is});
     } else {
@@ -508,6 +511,7 @@ export function setInitialProperties(
   switch (tag) {
     case 'iframe':
     case 'object':
+    case 'embed':
       trapBubbledEvent(TOP_LOAD, domElement);
       props = rawProps;
       break;
@@ -762,8 +766,6 @@ export function diffProperties(
       const lastHtml = lastProp ? lastProp[HTML] : undefined;
       if (nextHtml != null) {
         if (lastHtml !== nextHtml) {
-          // '' + nextHtml causes TT to be casted to string (which causes violation when updating react tree)
-          // TT_TODO: can we just use nextHtml? Is it really the only place?
           (updatePayload = updatePayload || []).push(propKey, nextHtml);
         }
       } else {
@@ -904,6 +906,7 @@ export function diffHydratedProperties(
   switch (tag) {
     case 'iframe':
     case 'object':
+    case 'embed':
       trapBubbledEvent(TOP_LOAD, domElement);
       break;
     case 'video':
@@ -1268,4 +1271,38 @@ export function restoreControlledState(
       ReactDOMSelectRestoreControlledState(domElement, props);
       return;
   }
+}
+
+export function listenToEventResponderEventTypes(
+  eventTypes: Array<string>,
+  element: Element | Document,
+): void {
+  if (enableFlareAPI) {
+    // Get the listening Set for this element. We use this to track
+    // what events we're listening to.
+    const listeningSet = getListeningSetForElement(element);
+
+    // Go through each target event type of the event responder
+    for (let i = 0, length = eventTypes.length; i < length; ++i) {
+      const eventType = eventTypes[i];
+      const isPassive = !endsWith(eventType, '_active');
+      const eventKey = isPassive ? eventType + '_passive' : eventType;
+      const targetEventType = isPassive
+        ? eventType
+        : eventType.substring(0, eventType.length - 7);
+      if (!listeningSet.has(eventKey)) {
+        trapEventForResponderEventSystem(
+          element,
+          ((targetEventType: any): DOMTopLevelEventType),
+          isPassive,
+        );
+        listeningSet.add(eventKey);
+      }
+    }
+  }
+}
+
+// We can remove this once the event API is stable and out of a flag
+if (enableFlareAPI) {
+  setListenToResponderEventTypes(listenToEventResponderEventTypes);
 }
