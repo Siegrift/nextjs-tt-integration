@@ -29,6 +29,16 @@ import { AmpStateContext } from '../lib/amp-context'
 import optimizeAmp from './optimize-amp'
 import { isInAmpMode } from '../lib/amp'
 import { PageConfig } from 'next-server/types'
+import TT from 'trusted-types'
+
+const TrustedTypes = {
+  ...TT,
+  getPropertyType: (elem: string, prop: string) => {
+    if (prop === 'innerHTML') return 'TrustedHTML'
+    if (elem === 'a' && prop === 'href') return 'TrustedURL'
+    return undefined
+  },
+}
 
 export type ManifestItem = {
   id: number | string
@@ -117,7 +127,7 @@ function render(
   let head
 
   try {
-    html = renderElementToString(element)
+    html = (renderElementToString as any)(element, {TrustedTypes})
   } finally {
     head = Head.rewind() || defaultHead(undefined, isInAmpMode(ampMode))
   }
@@ -366,12 +376,15 @@ export async function renderToHTML(
     ? renderToStaticMarkup
     : renderToString
 
+  const gg = (global as any)
+  gg.TrustedTypes = TrustedTypes
+
   const renderPageError = (): { html: string; head: any } | void => {
     if (ctx.err && ErrorDebug) {
       return render(
         renderElementToString,
         <ErrorDebug error={ctx.err} />,
-        ampState
+        ampState,
       )
     }
 

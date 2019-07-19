@@ -7,11 +7,11 @@
 
 import ReactVersion from 'shared/ReactVersion';
 import {
-  REACT_CONCURRENT_MODE_TYPE,
   REACT_FRAGMENT_TYPE,
   REACT_PROFILER_TYPE,
   REACT_STRICT_MODE_TYPE,
   REACT_SUSPENSE_TYPE,
+  REACT_SUSPENSE_LIST_TYPE,
 } from 'shared/ReactSymbols';
 
 import {Component, PureComponent} from './ReactBaseClasses';
@@ -22,6 +22,7 @@ import {
   createFactory,
   cloneElement,
   isValidElement,
+  jsx,
 } from './ReactElement';
 import {createContext} from './ReactContext';
 import {lazy} from './ReactLazy';
@@ -38,15 +39,20 @@ import {
   useReducer,
   useRef,
   useState,
+  useEvent,
 } from './ReactHooks';
+import {withSuspenseConfig} from './ReactBatchConfig';
 import {
   createElementWithValidation,
   createFactoryWithValidation,
   cloneElementWithValidation,
+  jsxWithValidation,
+  jsxWithValidationStatic,
+  jsxWithValidationDynamic,
 } from './ReactElementValidator';
 import ReactSharedInternals from './ReactSharedInternals';
-import {enableStableConcurrentModeAPIs} from 'shared/ReactFeatureFlags';
-
+import createEvent from 'shared/createEventComponent';
+import {enableJSXTransformAPI, enableFlareAPI} from 'shared/ReactFeatureFlags';
 const React = {
   Children: {
     map,
@@ -77,8 +83,10 @@ const React = {
   useState,
 
   Fragment: REACT_FRAGMENT_TYPE,
+  Profiler: REACT_PROFILER_TYPE,
   StrictMode: REACT_STRICT_MODE_TYPE,
   Suspense: REACT_SUSPENSE_TYPE,
+  unstable_SuspenseList: REACT_SUSPENSE_LIST_TYPE,
 
   createElement: __DEV__ ? createElementWithValidation : createElement,
   cloneElement: __DEV__ ? cloneElementWithValidation : cloneElement,
@@ -87,22 +95,32 @@ const React = {
 
   version: ReactVersion,
 
-  unstable_ConcurrentMode: REACT_CONCURRENT_MODE_TYPE,
-  unstable_Profiler: REACT_PROFILER_TYPE,
+  unstable_withSuspenseConfig: withSuspenseConfig,
 
   __SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED: ReactSharedInternals,
 };
+
+if (enableFlareAPI) {
+  React.unstable_createEvent = createEvent;
+  React.unstable_useEvent = useEvent;
+}
 
 // Note: some APIs are added with feature flags.
 // Make sure that stable builds for open source
 // don't modify the React object to avoid deopts.
 // Also let's not expose their names in stable builds.
 
-if (enableStableConcurrentModeAPIs) {
-  React.ConcurrentMode = REACT_CONCURRENT_MODE_TYPE;
-  React.Profiler = REACT_PROFILER_TYPE;
-  React.unstable_ConcurrentMode = undefined;
-  React.unstable_Profiler = undefined;
+if (enableJSXTransformAPI) {
+  if (__DEV__) {
+    React.jsxDEV = jsxWithValidation;
+    React.jsx = jsxWithValidationDynamic;
+    React.jsxs = jsxWithValidationStatic;
+  } else {
+    React.jsx = jsx;
+    // we may want to special case jsxs internally to take advantage of static children.
+    // for now we can ship identical prod functions
+    React.jsxs = jsx;
+  }
 }
 
 export default React;

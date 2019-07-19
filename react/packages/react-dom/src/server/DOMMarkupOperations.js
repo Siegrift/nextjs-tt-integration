@@ -17,6 +17,7 @@ import {
   shouldIgnoreAttribute,
   shouldRemoveAttribute,
 } from '../shared/DOMProperty';
+import sanitizeURL from '../shared/sanitizeURL';
 import quoteAttributeValueForBrowser from './quoteAttributeValueForBrowser';
 
 /**
@@ -44,7 +45,12 @@ export function createMarkupForRoot(): string {
  * @param {*} value
  * @return {?string} Markup string, or null if the property was invalid.
  */
-export function createMarkupForProperty(name: string, value: mixed): string {
+export function createMarkupForProperty(
+  name: string,
+  value: mixed,
+  tagLowercase: string,
+  optionalDeps: ?any,
+): string {
   const propertyInfo = getPropertyInfo(name);
   if (name !== 'style' && shouldIgnoreAttribute(name, propertyInfo, false)) {
     return '';
@@ -52,17 +58,34 @@ export function createMarkupForProperty(name: string, value: mixed): string {
   if (shouldRemoveAttribute(name, value, propertyInfo, false)) {
     return '';
   }
-
-  // TT_TODO: proper hadling of attributes
-  if (name === 'href' && value.constructor.name !== 'TrustedURL') throw new Error("Encountered untrusted url: " + value);
-  if (name === 'srcDoc' && value.constructor.name !== 'TrustedHTML') throw new Error("Encountered untrusted html: " + value);
-
+  if (
+    optionalDeps &&
+    optionalDeps.TrustedTypes &&
+    optionalDeps.TrustedTypes.getPropertyType(tagLowercase, name)
+  ) {
+    const TT = optionalDeps.TrustedTypes;
+    const requiredTrustedType = TT.getPropertyType(tagLowercase, name);
+    if (
+      (requiredTrustedType === 'TrustedHTML' && !TT.isHTML(value)) ||
+      (requiredTrustedType === 'TrustedScriptURL' && !TT.isScriptURL(value)) ||
+      (requiredTrustedType === 'TrustedURL' && !TT.isURL(value)) ||
+      (requiredTrustedType === 'TrustedScript' && !TT.isScript(value))
+    ) {
+      throw new Error(
+        `${name} requires ${requiredTrustedType}! Received: ${(value: any)}`,
+      );
+    }
+  }
   if (propertyInfo !== null) {
     const attributeName = propertyInfo.attributeName;
     const {type} = propertyInfo;
     if (type === BOOLEAN || (type === OVERLOADED_BOOLEAN && value === true)) {
       return attributeName + '=""';
     } else {
+      if (propertyInfo.sanitizeURL) {
+        value = '' + (value: any);
+        sanitizeURL(value);
+      }
       return attributeName + '=' + quoteAttributeValueForBrowser(value);
     }
   } else if (isAttributeNameSafe(name)) {

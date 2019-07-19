@@ -133,13 +133,4 @@ class Home extends React.Component {
   }
 }
 
-// export default Home
-const DynamicHome = dynamic(() => import('./dynHome'), { ssr: false });
-const Comp = () => (
-  <div>
-    <Head title="Home" />
-    sss
-    <DynamicHome />
-  </div>
-)
-export default Comp
+export default Home
