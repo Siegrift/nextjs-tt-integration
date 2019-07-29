@@ -16,7 +16,7 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url, true)
     const { pathname, query } = parsedUrl
 
-    res.setHeader("Content-Security-Policy", "trusted-types webpack nextjs-client nextjs-router react app-policy")
+    res.setHeader("Content-Security-Policy", "trusted-types webpack nextjs-client nextjs-server nextjs-router react app-policy")
     app.render(req, res, pathname, query)
   }).listen(3000, err => {
     if (err) throw err

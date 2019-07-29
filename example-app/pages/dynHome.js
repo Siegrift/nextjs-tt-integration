@@ -117,7 +117,7 @@ class Home extends React.Component {
         </p>
 
         {/* React can't execute dynamic scripts: react-dom/src/client/ReactDOMComponent.js */}
-        <DynamicScript />
+        {/* <DynamicScript /> */}
 
         {/* Will try to add iframe with srcdoc. */}
         <p>
