@@ -939,9 +939,9 @@ abbrev@1:
   integrity sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==
 
 acorn@^6.2.0:
-  version "6.2.0"
-  resolved "https://registry.yarnpkg.com/acorn/-/acorn-6.2.0.tgz#67f0da2fc339d6cfb5d6fb244fd449f33cd8bbe3"
-  integrity sha512-8oe72N3WPMjA+2zVG71Ia0nXZ8DpQH+QyyHO+p06jT8eg8FGG3FbcUIi8KziHlAfheJQZeoqbvq1mQSQHXKYLw==
+  version "6.4.1"
+  resolved "https://registry.yarnpkg.com/acorn/-/acorn-6.4.1.tgz#531e58ba3f51b9dacb9a6646ca4debf5b14ca474"
+  integrity sha512-ZVA9k326Nwrj3Cj9jlh3wGFutC2ZornPNARZwsNYqQYgN0EsV2d53w5RN/co65Ohn4sUAUtb1rSUAOD6XN9idA==
 
 ajv-errors@^1.0.0:
   version "1.0.1"
@@ -2960,8 +2960,56 @@ next-server@9.0.1-canary.0:
     url "0.11.0"
 
 "next@link:../next.js/packages/next":
-  version "0.0.0"
-  uid ""
+  version "9.0.1-canary.0"
+  dependencies:
+    "@babel/core" "7.4.5"
+    "@babel/plugin-proposal-class-properties" "7.4.4"
+    "@babel/plugin-proposal-object-rest-spread" "7.4.4"
+    "@babel/plugin-syntax-dynamic-import" "7.2.0"
+    "@babel/plugin-transform-modules-commonjs" "7.4.4"
+    "@babel/plugin-transform-runtime" "7.4.4"
+    "@babel/preset-env" "7.4.5"
+    "@babel/preset-react" "7.0.0"
+    "@babel/preset-typescript" "7.3.3"
+    "@babel/runtime" "7.4.5"
+    "@babel/runtime-corejs2" "7.4.5"
+    "@types/trusted-types" "1.0.1"
+    amphtml-validator "1.0.23"
+    async-sema "3.0.0"
+    autodll-webpack-plugin "0.4.2"
+    babel-core "7.0.0-bridge.0"
+    babel-loader "8.0.6"
+    babel-plugin-react-require "3.0.0"
+    babel-plugin-transform-async-to-promises "0.8.10"
+    babel-plugin-transform-react-remove-prop-types "0.4.24"
+    chalk "2.4.2"
+    find-up "4.0.0"
+    fork-ts-checker-webpack-plugin "1.3.4"
+    fresh "0.5.2"
+    launch-editor "2.2.1"
+    loader-utils "1.2.3"
+    mkdirp "0.5.1"
+    next-server "9.0.1-canary.0"
+    prop-types "15.7.2"
+    prop-types-exact "1.2.0"
+    react-error-overlay "5.1.6"
+    react-is "16.8.6"
+    serialize-javascript "1.7.0"
+    source-map "0.6.1"
+    string-hash "1.1.3"
+    strip-ansi "5.2.0"
+    styled-jsx "3.2.1"
+    terser "4.0.0"
+    trusted-types "1.0.6"
+    tty-aware-progress "1.0.4"
+    unfetch "4.1.0"
+    url "0.11.0"
+    watchpack "2.0.0-beta.5"
+    webpack "4.35.3"
+    webpack-dev-middleware "3.7.0"
+    webpack-hot-middleware "2.25.0"
+    webpack-sources "1.3.0"
+    worker-farm "1.7.0"
 
 node-fetch@2.6.0:
   version "2.6.0"
@@ -3515,8 +3563,13 @@ rc@^1.2.7:
     strip-json-comments "~2.0.1"
 
 "react-dom@link:../react/packages/react-dom":
-  version "0.0.0"
-  uid ""
+  version "16.8.6"
+  dependencies:
+    loose-envify "^1.1.0"
+    object-assign "^4.1.1"
+    prop-types "^15.6.2"
+    scheduler "^0.13.6"
+    trusted-types "^1.0.6"
 
 react-error-overlay@5.1.6:
   version "5.1.6"
@@ -3529,8 +3582,12 @@ react-is@16.8.6, react-is@^16.8.1:
   integrity sha512-aUk3bHfZ2bRSVFFbbeVS4i+lNPZr3/WM5jT2J5omUVV1zzcs1nAaf3l51ctA5FFvCRbhrH0bdAsRRQddFJZPtA==
 
 "react@link:../react/packages/react":
-  version "0.0.0"
-  uid ""
+  version "16.8.6"
+  dependencies:
+    loose-envify "^1.1.0"
+    object-assign "^4.1.1"
+    prop-types "^15.6.2"
+    scheduler "^0.13.6"
 
 read-pkg@^2.0.0:
   version "2.0.0"
