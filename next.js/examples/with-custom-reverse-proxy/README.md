@@ -1,13 +1,20 @@
 # Reverse Proxy example
 
+This example applies this gist https://gist.github.com/jamsesso/67fd937b74989dc52e33 to Nextjs and provides:
+
+- Reverse proxy in development mode by add `http-proxy-middleware` to custom server
+- NOT a recommended approach to production scale (hence explicit dev flag) as we should scope proxy as outside UI applications and have separate web server taking care of that.
+
+Sorry for the extra packages. I belong to the minority camp of writing ES6 code on Windows developers. Essentially you only need `http-proxy-middleware` on top of bare-bone Nextjs setup to run this example.
+
 ## How to use
 
 ### Using `create-next-app`
 
-Execute [`create-next-app`](https://github.com/segmentio/create-next-app) with [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) or [npx](https://github.com/zkat/npx#readme) to bootstrap the example:
+Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init) or [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/) to bootstrap the example:
 
 ```bash
-npx create-next-app --example with-custom-reverse-proxy with-custom-reverse-proxy-app
+npm init next-app --example with-custom-reverse-proxy with-custom-reverse-proxy-app
 # or
 yarn create next-app --example with-custom-reverse-proxy with-custom-reverse-proxy-app
 ```
@@ -17,7 +24,7 @@ yarn create next-app --example with-custom-reverse-proxy with-custom-reverse-pro
 Download the example:
 
 ```bash
-curl https://codeload.github.com/zeit/next.js/tar.gz/master | tar -xz --strip=2 next.js-master/examples/with-custom-reverse-proxy
+curl https://codeload.github.com/vercel/next.js/tar.gz/master | tar -xz --strip=2 next.js-master/examples/with-custom-reverse-proxy
 cd with-custom-reverse-proxy
 ```
 
@@ -30,15 +37,6 @@ npm run dev
 yarn
 yarn dev
 ```
-
-## The idea behind the example
-
-This example applies this gist https://gist.github.com/jamsesso/67fd937b74989dc52e33 to Nextjs and provides:
-
-- Reverse proxy in development mode by add `http-proxy-middleware` to custom server
-- NOT a recommended approach to production scale (hence explicit dev flag) as we should scope proxy as outside UI applications and have separate web server taking care of that.
-
-Sorry for the extra packages. I belong to the minority camp of writing ES6 code on Windows developers. Essentially you only need `http-proxy-middleware` on top of bare-bone Nextjs setup to run this example.
 
 ## What it does
 

@@ -11,14 +11,15 @@ Updating code that relies on this behavior is relatively straightforward! We've 
 Migrate to using separate dynamic calls for each module.
 
 Before
+
 ```js
 import dynamic from 'next/dynamic'
 
 const HelloBundle = dynamic({
   modules: () => {
     const components = {
-      Hello1: () => import('../components/hello1').then(m => m.default),
-      Hello2: () => import('../components/hello2').then(m => m.default),
+      Hello1: () => import('../components/hello1').then((m) => m.default),
+      Hello2: () => import('../components/hello2').then((m) => m.default),
     }
 
     return components
@@ -40,6 +41,7 @@ export default DynamicBundle
 ```
 
 After
+
 ```js
 import dynamic from 'next/dynamic'
 

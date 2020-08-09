@@ -1,12 +1,12 @@
 /* eslint-env jest */
-/* global jasmine */
+
 import { join } from 'path'
 import {
   renderViaHTTP,
   fetchViaHTTP,
   findPort,
   launchApp,
-  killApp
+  killApp,
 } from 'next-test-utils'
 
 // test suits
@@ -14,18 +14,34 @@ import rendering from './rendering'
 import client from './client'
 import csp from './csp'
 
-const context = {}
-jasmine.DEFAULT_TIMEOUT_INTERVAL = 1000 * 60 * 5
+const context = {
+  output: '',
+}
+jest.setTimeout(1000 * 60 * 5)
+
+const collectOutput = (message) => {
+  context.output += message
+}
 
 describe('Document and App', () => {
   beforeAll(async () => {
     context.appPort = await findPort()
-    context.server = await launchApp(join(__dirname, '../'), context.appPort)
+    context.server = await launchApp(join(__dirname, '../'), context.appPort, {
+      onStdout: collectOutput,
+      onStderr: collectOutput,
+    })
 
     // pre-build all pages at the start
     await Promise.all([renderViaHTTP(context.appPort, '/')])
   })
   afterAll(() => killApp(context.server))
+
+  it('should not have any missing key warnings', async () => {
+    await renderViaHTTP(context.appPort, '/')
+    expect(context.output).not.toMatch(
+      /Each child in a list should have a unique "key" prop/
+    )
+  })
 
   rendering(
     context,

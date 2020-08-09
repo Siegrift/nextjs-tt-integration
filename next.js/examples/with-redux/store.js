@@ -1,68 +1,74 @@
+import { useMemo } from 'react'
 import { createStore, applyMiddleware } from 'redux'
 import { composeWithDevTools } from 'redux-devtools-extension'
 
-const exampleInitialState = {
+let store
+
+const initialState = {
   lastUpdate: 0,
   light: false,
-  count: 0
+  count: 0,
 }
 
-export const actionTypes = {
-  TICK: 'TICK',
-  INCREMENT: 'INCREMENT',
-  DECREMENT: 'DECREMENT',
-  RESET: 'RESET'
-}
-
-// REDUCERS
-export const reducer = (state = exampleInitialState, action) => {
+const reducer = (state = initialState, action) => {
   switch (action.type) {
-    case actionTypes.TICK:
-      return Object.assign({}, state, {
-        lastUpdate: action.ts,
-        light: !!action.light
-      })
-    case actionTypes.INCREMENT:
-      return Object.assign({}, state, {
-        count: state.count + 1
-      })
-    case actionTypes.DECREMENT:
-      return Object.assign({}, state, {
-        count: state.count - 1
-      })
-    case actionTypes.RESET:
-      return Object.assign({}, state, {
-        count: exampleInitialState.count
-      })
+    case 'TICK':
+      return {
+        ...state,
+        lastUpdate: action.lastUpdate,
+        light: !!action.light,
+      }
+    case 'INCREMENT':
+      return {
+        ...state,
+        count: state.count + 1,
+      }
+    case 'DECREMENT':
+      return {
+        ...state,
+        count: state.count - 1,
+      }
+    case 'RESET':
+      return {
+        ...state,
+        count: initialState.count,
+      }
     default:
       return state
   }
 }
 
-// ACTIONS
-export const serverRenderClock = () => {
-  return { type: actionTypes.TICK, light: false, ts: Date.now() }
-}
-export const startClock = () => {
-  return { type: actionTypes.TICK, light: true, ts: Date.now() }
-}
-
-export const incrementCount = () => {
-  return { type: actionTypes.INCREMENT }
-}
-
-export const decrementCount = () => {
-  return { type: actionTypes.DECREMENT }
-}
-
-export const resetCount = () => {
-  return { type: actionTypes.RESET }
-}
-
-export function initializeStore (initialState = exampleInitialState) {
+function initStore(preloadedState = initialState) {
   return createStore(
     reducer,
-    initialState,
+    preloadedState,
     composeWithDevTools(applyMiddleware())
   )
+}
+
+export const initializeStore = (preloadedState) => {
+  let _store = store ?? initStore(preloadedState)
+
+  // After navigating to a page with an initial Redux state, merge that state
+  // with the current state in the store, and create a new store
+  if (preloadedState && store) {
+    _store = initStore({
+      ...store.getState(),
+      ...preloadedState,
+    })
+    // Reset the current store
+    store = undefined
+  }
+
+  // For SSG and SSR always create a new store
+  if (typeof window === 'undefined') return _store
+  // Create the store once in the client
+  if (!store) store = _store
+
+  return _store
+}
+
+export function useStore(initialState) {
+  const store = useMemo(() => initializeStore(initialState), [initialState])
+  return store
 }

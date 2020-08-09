@@ -16,9 +16,16 @@ app.prepare().then(() => {
     const parsedUrl = parse(req.url, true)
     const { pathname, query } = parsedUrl
 
-    res.setHeader("Content-Security-Policy", "trusted-types webpack nextjs-client nextjs-router react app-policy")
+    res.setHeader(
+      'Content-Security-Policy-Report-Only',
+      'trusted-types webpack nextjs-client nextjs-router react app-policy next-trusted-types default',
+    )
+    res.setHeader(
+      'Content-Security-Policy-Report-Only',
+      "require-trusted-types-for 'script'",
+    )
     app.render(req, res, pathname, query)
-  }).listen(3000, err => {
+  }).listen(3000, (err) => {
     if (err) throw err
     console.log('> Ready on http://localhost:3000')
   })

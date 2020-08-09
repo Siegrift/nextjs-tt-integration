@@ -1,4 +1,0 @@
-./packages/next/client/head-manager.js:75: innerHTML/innerContent/setAttribute (adding new html tags to head, possibly scripts)
-React sinks:
-./react-dom/src/client/setTextContent.js:34:  node.textContent
-./react-dom/src/client/DOMPropertyOperations.js:145, 181, 183: node.setAttribute

@@ -1,7 +1,6 @@
 import React from 'react'
-import Head from 'next-server/head'
-import { NextPageContext } from 'next-server/dist/lib/utils'
-import trustedTypesPolicy from '../server/trustedTypesPolicy'
+import Head from '../next-server/lib/head'
+import { NextPageContext } from '../next-server/lib/utils'
 
 const statusCodes: { [code: number]: string } = {
   400: 'Bad Request',
@@ -12,7 +11,16 @@ const statusCodes: { [code: number]: string } = {
 
 export type ErrorProps = {
   statusCode: number
-  title: string
+  title?: string
+}
+
+function _getInitialProps({
+  res,
+  err,
+}: NextPageContext): Promise<ErrorProps> | ErrorProps {
+  const statusCode =
+    res && res.statusCode ? res.statusCode : err ? err.statusCode! : 404
+  return { statusCode }
 }
 
 /**
@@ -21,11 +29,8 @@ export type ErrorProps = {
 export default class Error<P = {}> extends React.Component<P & ErrorProps> {
   static displayName = 'ErrorPage'
 
-  static getInitialProps({ res, err }: NextPageContext) {
-    const statusCode =
-      res && res.statusCode ? res.statusCode : err ? err.statusCode : 404
-    return { statusCode }
-  }
+  static getInitialProps = _getInitialProps
+  static origGetInitialProps = _getInitialProps
 
   render() {
     const { statusCode } = this.props
@@ -42,7 +47,7 @@ export default class Error<P = {}> extends React.Component<P & ErrorProps> {
           </title>
         </Head>
         <div>
-          <style dangerouslySetInnerHTML={{ __html: trustedTypesPolicy.createHTML('body { margin: 0 }') }} />
+          <style dangerouslySetInnerHTML={{ __html: 'body { margin: 0 }' }} />
           {statusCode ? <h1 style={styles.h1}>{statusCode}</h1> : null}
           <div style={styles.desc}>
             <h2 style={styles.h2}>{title}.</h2>

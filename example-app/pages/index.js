@@ -4,14 +4,12 @@ import React from 'react'
 import Head from '../components/head'
 import Router from 'next/router'
 import dynamic from 'next/dynamic'
-import {getPolicy} from '../trustedTypesPolicy'
+import { getPolicy } from '../trustedTypesPolicy'
 
-const DynamicScript = dynamic(() => import('./script'), { ssr: false });
+const DynamicScript = dynamic(() => import('./script'), { ssr: false })
 
 class Home extends React.Component {
   state = {
-    hrefText: '',
-    href: '',
     untrustedHrefText: '',
     untrustedHref: '',
     html: '',
@@ -31,21 +29,23 @@ class Home extends React.Component {
           <button onClick={() => Router.push('/about')}>About route</button>
 
           {/* This will trigger an error and nextjs will try to load it's default (trusted) error page. */}
-          <button onClick={() => Router.push('/nonExistent')}>Non-existent route</button>
+          <button onClick={() => Router.push('/nonExistent')}>
+            Non-existent route
+          </button>
         </div>
 
         {/* Trigger xss */}
         <div>
-          <a href={getPolicy().createURL('/xss-hacky1?html=<img%20src=%27x%27%20onerror="alert(1)"')}>
+          <a href={'/xss-hacky1?html=<img%20src=%27x%27%20onerror="alert(1)"'}>
             <button>Xss 1</button>
           </a>
-          <a href={getPolicy().createURL('/xss-hacky2?html=<img%20src=%27x%27%20onerror="alert(1)"')}>
+          <a href={'/xss-hacky2?html=<img%20src=%27x%27%20onerror="alert(1)"'}>
             <button>Xss 2</button>
           </a>
-          <a href={getPolicy().createURL('/xss-hacky3?html=<img%20src=%27x%27%20onerror="alert(1)"')}>
+          <a href={'/xss-hacky3?html=<img%20src=%27x%27%20onerror="alert(1)"'}>
             <button>Xss 3</button>
           </a>
-          <a href={getPolicy().createURL('/xss-hacky4?html=<img%20src=%27x%27%20onerror="alert(1)"')}>
+          <a href={'/xss-hacky4?html=<img%20src=%27x%27%20onerror="alert(1)"'}>
             <button>Xss 4</button>
           </a>
         </div>
@@ -56,22 +56,23 @@ class Home extends React.Component {
 
         {/* Try: javascript:alert(0) */}
         <p>
-          {this.state.href && <a href={getPolicy().createURL(this.state.href)}>Link with trusted href</a>}
-          <input
-            type="text"
-            value={this.state.hrefText}
-            onChange={(e) => this.setState({hrefText: e.target.value})}
-          />
-          <button onClick={() => this.setState((s) => ({href: s.hrefText}))}>Set href</button>
-        </p>
-        <p>
-          {this.state.untrustedHref && <a href={this.state.untrustedHref}>Link with NON trusted href</a>}
+          {this.state.untrustedHref && (
+            <a href={this.state.untrustedHref}>Link with NON trusted href</a>
+          )}
           <input
             type="text"
             value={this.state.untrustedHrefText}
-            onChange={(e) => this.setState({untrustedHrefText: e.target.value})}
+            onChange={(e) =>
+              this.setState({ untrustedHrefText: e.target.value })
+            }
           />
-          <button onClick={() => this.setState((s) => ({untrustedHref: s.untrustedHrefText}))}>Set untrusted href</button>
+          <button
+            onClick={() =>
+              this.setState((s) => ({ untrustedHref: s.untrustedHrefText }))
+            }
+          >
+            Set untrusted href
+          </button>
         </p>
 
         {/* Try: <img src=x onerror=alert(0) /> */}
@@ -80,10 +81,12 @@ class Home extends React.Component {
           <input
             type="text"
             value={this.state.html}
-            onChange={(e) => this.setState({html: e.target.value})}
+            onChange={(e) => this.setState({ html: e.target.value })}
           />
           <button
-            onClick={() => this.setState((s) => ({nodes: [...s.nodes, s.html]}))}
+            onClick={() =>
+              this.setState((s) => ({ nodes: [...s.nodes, s.html] }))
+            }
           >
             Add node
           </button>
@@ -91,18 +94,25 @@ class Home extends React.Component {
             // created html (TT) will be created on every render and as TT is an object, it will
             // be treated as a change and will rerender the component.
             // See TT_TODO in react-dom/src/client/ReactDOMComponent.js
-            <span key={i} dangerouslySetInnerHTML={{__html: getPolicy().createHTML(n)}} />
-            ))}
+            <span
+              key={i}
+              dangerouslySetInnerHTML={{ __html: getPolicy().createHTML(n) }}
+            />
+          ))}
         </p>
         <p>
           Add node with NON trusted dangerouslySetInnerHTML
           <input
             type="text"
             value={this.state.untrustedHtml}
-            onChange={(e) => this.setState({untrustedHtml: e.target.value})}
+            onChange={(e) => this.setState({ untrustedHtml: e.target.value })}
           />
           <button
-            onClick={() => this.setState((s) => ({untrustedNodes: [...s.untrustedNodes, s.untrustedHtml]}))}
+            onClick={() =>
+              this.setState((s) => ({
+                untrustedNodes: [...s.untrustedNodes, s.untrustedHtml],
+              }))
+            }
           >
             Add NON trusted node
           </button>
@@ -110,21 +120,21 @@ class Home extends React.Component {
             // created html (TT) will be created on every render and as TT is an object, it will
             // be treated as a change and will rerender the component.
             // See TT_TODO in react-dom/src/client/ReactDOMComponent.js
-            <span key={i} dangerouslySetInnerHTML={{__html: n}} />
-            ))}
+            <span key={i} dangerouslySetInnerHTML={{ __html: n }} />
+          ))}
         </p>
 
         {/* React can't execute dynamic scripts: react-dom/src/client/ReactDOMComponent.js */}
-        <DynamicScript />
+        {/* <DynamicScript /> */}
 
         {/* Will try to add iframe with srcdoc. */}
         <p>
-          <button
-            onClick={() => this.setState({iframe: true})}
-          >
+          <button onClick={() => this.setState({ iframe: true })}>
             Add unsecure iframe
           </button>
-          {this.state.iframe && <iframe srcDoc={"<script>alert(0)</script>"}></iframe>}
+          {this.state.iframe && (
+            <iframe srcDoc={'<script>alert(0)</script>'}></iframe>
+          )}
         </p>
       </div>
     )

@@ -1,43 +1,11 @@
-import React from 'react'
-import App, { Container } from 'next/app'
-import * as Sentry from '@sentry/browser'
+import * as Sentry from '@sentry/node'
 
 Sentry.init({
-  dsn: 'ENTER_YOUR_SENTRY_DSN_HERE'
+  enabled: process.env.NODE_ENV === 'production',
+  dsn: process.env.NEXT_PUBLIC_SENTRY_DSN,
 })
 
-class MyApp extends App {
-  static async getInitialProps ({ Component, ctx }) {
-    let pageProps = {}
-
-    if (Component.getInitialProps) {
-      pageProps = await Component.getInitialProps(ctx)
-    }
-
-    return { pageProps }
-  }
-
-  componentDidCatch (error, errorInfo) {
-    Sentry.withScope(scope => {
-      Object.keys(errorInfo).forEach(key => {
-        scope.setExtra(key, errorInfo[key])
-      })
-
-      Sentry.captureException(error)
-    })
-
-    super.componentDidCatch(error, errorInfo)
-  }
-
-  render () {
-    const { Component, pageProps } = this.props
-
-    return (
-      <Container>
-        <Component {...pageProps} />
-      </Container>
-    )
-  }
+export default function App({ Component, pageProps, err }) {
+  // Workaround for https://github.com/vercel/next.js/issues/8592
+  return <Component {...pageProps} err={err} />
 }
-
-export default MyApp

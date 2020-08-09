@@ -1,20 +1,11 @@
-import fs from 'fs'
+import { promises as fsPromises } from 'fs'
+import chalk from 'next/dist/compiled/chalk'
+import * as CommentJson from 'next/dist/compiled/comment-json'
 import os from 'os'
 import path from 'path'
-import chalk from 'chalk'
-import { promisify } from 'util'
+import { fileExists } from './file-exists'
 import { recursiveReadDir } from './recursive-readdir'
-import resolve from 'next/dist/compiled/resolve/index.js'
-
-const exists = promisify(fs.exists)
-const writeFile = promisify(fs.writeFile)
-
-function writeJson(fileName: string, object: object): Promise<void> {
-  return writeFile(
-    fileName,
-    JSON.stringify(object, null, 2).replace(/\n/g, os.EOL) + os.EOL
-  )
-}
+import { resolveRequest } from './resolve-request'
 
 async function hasTypeScript(dir: string): Promise<boolean> {
   const typescriptFiles = await recursiveReadDir(
@@ -32,23 +23,26 @@ async function checkDependencies({
 }: {
   dir: string
   isYarn: boolean
-}) {
+}): Promise<string> {
   const requiredPackages = [
     { file: 'typescript', pkg: 'typescript' },
     { file: '@types/react/index.d.ts', pkg: '@types/react' },
     { file: '@types/node/index.d.ts', pkg: '@types/node' },
   ]
 
-  const missingPackages = requiredPackages.filter(p => {
+  let resolutions = new Map<string, string>()
+
+  const missingPackages = requiredPackages.filter((p) => {
     try {
-      resolve.sync(p.file, { basedir: dir })
+      resolutions.set(p.pkg, resolveRequest(p.file, `${dir}/`))
+      return false
     } catch (_) {
       return true
     }
   })
 
   if (missingPackages.length < 1) {
-    return
+    return resolutions.get('typescript')!
   }
 
   const packagesHuman = missingPackages
@@ -63,7 +57,7 @@ async function checkDependencies({
           : '') + p.pkg
     )
     .join('')
-  const packagesCli = missingPackages.map(p => p.pkg).join(' ')
+  const packagesCli = missingPackages.map((p) => p.pkg).join(' ')
 
   console.error(
     chalk.bold.red(
@@ -92,22 +86,34 @@ async function checkDependencies({
   process.exit(1)
 }
 
-export async function verifyTypeScriptSetup(dir: string): Promise<void> {
+export async function verifyTypeScriptSetup(
+  dir: string,
+  pagesDir: string
+): Promise<void> {
   const tsConfigPath = path.join(dir, 'tsconfig.json')
   const yarnLockFile = path.join(dir, 'yarn.lock')
 
-  const hasTsConfig = await exists(tsConfigPath)
-  const isYarn = await exists(yarnLockFile)
-  const hasTypeScriptFiles = await hasTypeScript(dir)
-  let firstTimeSetup = !hasTsConfig && hasTypeScriptFiles
+  const hasTsConfig = await fileExists(tsConfigPath)
+  const isYarn = await fileExists(yarnLockFile)
 
-  if (!(hasTsConfig || hasTypeScriptFiles)) {
-    return
+  let firstTimeSetup = false
+  if (hasTsConfig) {
+    const tsConfig = await fsPromises
+      .readFile(tsConfigPath, 'utf8')
+      .then((val) => val.trim())
+    firstTimeSetup = tsConfig === '' || tsConfig === '{}'
+  } else {
+    const hasTypeScriptFiles = await hasTypeScript(pagesDir)
+    if (hasTypeScriptFiles) {
+      firstTimeSetup = true
+    } else {
+      return
+    }
   }
 
-  await checkDependencies({ dir, isYarn })
+  const tsPath = await checkDependencies({ dir, isYarn })
+  const ts = (await import(tsPath)) as typeof import('typescript')
 
-  const ts = await import('typescript')
   const compilerOptions: any = {
     // These are suggested values and will be set when not present in the
     // tsconfig.json
@@ -163,13 +169,11 @@ export async function verifyTypeScriptSetup(dir: string): Promise<void> {
     )
     console.log()
 
-    await writeJson(tsConfigPath, {})
+    await fsPromises.writeFile(tsConfigPath, '{}' + os.EOL)
   }
 
-  const messages = []
-  let appTsConfig
-  let parsedTsConfig
-  let parsedCompilerOptions
+  let resolvedTsConfig
+  let resolvedCompilerOptions
   try {
     const { config: readTsConfig, error } = ts.readConfigFile(
       tsConfigPath,
@@ -180,25 +184,33 @@ export async function verifyTypeScriptSetup(dir: string): Promise<void> {
       throw new Error(ts.formatDiagnostic(error, formatDiagnosticHost))
     }
 
-    appTsConfig = readTsConfig
+    resolvedTsConfig = readTsConfig
 
     // Get TS to parse and resolve any "extends"
     // Calling this function also mutates the tsconfig, adding in "include" and
     // "exclude", but the compilerOptions remain untouched
-    parsedTsConfig = JSON.parse(JSON.stringify(readTsConfig))
+    const throwAwayConfig = JSON.parse(JSON.stringify(readTsConfig))
     const result = ts.parseJsonConfigFileContent(
-      parsedTsConfig,
+      throwAwayConfig,
       ts.sys,
       path.dirname(tsConfigPath)
     )
 
-    if (result.errors && result.errors.length) {
+    if (result.errors) {
+      result.errors = result.errors.filter(
+        ({ code }) =>
+          // No inputs were found in config file
+          code !== 18003
+      )
+    }
+
+    if (result.errors?.length) {
       throw new Error(
         ts.formatDiagnostic(result.errors[0], formatDiagnosticHost)
       )
     }
 
-    parsedCompilerOptions = result.options
+    resolvedCompilerOptions = result.options
   } catch (e) {
     if (e && e.name === 'SyntaxError') {
       console.error(
@@ -210,16 +222,21 @@ export async function verifyTypeScriptSetup(dir: string): Promise<void> {
       )
     }
 
-    console.info(e && e.message ? `${e.message}` : '')
+    console.info(e?.message ? `${e.message}` : '')
     process.exit(1)
     return
   }
 
-  if (appTsConfig.compilerOptions == null) {
-    appTsConfig.compilerOptions = {}
+  const userTsConfigContent = await fsPromises.readFile(tsConfigPath, {
+    encoding: 'utf8',
+  })
+  const userTsConfig = CommentJson.parse(userTsConfigContent)
+  if (userTsConfig.compilerOptions == null) {
+    userTsConfig.compilerOptions = {}
     firstTimeSetup = true
   }
 
+  const messages = []
   for (const option of Object.keys(compilerOptions)) {
     const { parsedValue, value, suggested, reason } = compilerOptions[option]
 
@@ -227,16 +244,16 @@ export async function verifyTypeScriptSetup(dir: string): Promise<void> {
     const coloredOption = chalk.cyan('compilerOptions.' + option)
 
     if (suggested != null) {
-      if (parsedCompilerOptions[option] === undefined) {
-        appTsConfig.compilerOptions[option] = suggested
+      if (resolvedCompilerOptions[option] === undefined) {
+        userTsConfig.compilerOptions[option] = suggested
         messages.push(
           `${coloredOption} to be ${chalk.bold(
             'suggested'
           )} value: ${chalk.cyan.bold(suggested)} (this can be changed)`
         )
       }
-    } else if (parsedCompilerOptions[option] !== valueToCheck) {
-      appTsConfig.compilerOptions[option] = value
+    } else if (resolvedCompilerOptions[option] !== valueToCheck) {
+      userTsConfig.compilerOptions[option] = value
       messages.push(
         `${coloredOption} ${chalk.bold(
           valueToCheck == null ? 'must not' : 'must'
@@ -247,12 +264,12 @@ export async function verifyTypeScriptSetup(dir: string): Promise<void> {
   }
 
   // tsconfig will have the merged "include" and "exclude" by this point
-  if (parsedTsConfig.exclude == null) {
-    appTsConfig.exclude = ['node_modules']
+  if (resolvedTsConfig.exclude == null) {
+    userTsConfig.exclude = ['node_modules']
   }
 
-  if (parsedTsConfig.include == null) {
-    appTsConfig.include = ['next-env.d.ts', '**/*.ts', '**/*.tsx']
+  if (resolvedTsConfig.include == null) {
+    userTsConfig.include = ['next-env.d.ts', '**/*.ts', '**/*.tsx']
   }
 
   if (messages.length > 0) {
@@ -273,18 +290,22 @@ export async function verifyTypeScriptSetup(dir: string): Promise<void> {
           'file:'
         )
       )
-      messages.forEach(message => {
+      messages.forEach((message) => {
         console.warn('  - ' + message)
       })
       console.warn()
     }
-    await writeJson(tsConfigPath, appTsConfig)
+    await fsPromises.writeFile(
+      tsConfigPath,
+      CommentJson.stringify(userTsConfig, null, 2) + os.EOL
+    )
   }
 
   // Reference `next` types
   const appTypeDeclarations = path.join(dir, 'next-env.d.ts')
-  if (!fs.existsSync(appTypeDeclarations)) {
-    fs.writeFileSync(
+  const hasAppTypeDeclarations = await fileExists(appTypeDeclarations)
+  if (!hasAppTypeDeclarations) {
+    await fsPromises.writeFile(
       appTypeDeclarations,
       '/// <reference types="next" />' +
         os.EOL +

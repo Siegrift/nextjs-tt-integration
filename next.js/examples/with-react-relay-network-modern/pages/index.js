@@ -1,4 +1,4 @@
-import React, { Component } from 'react'
+import { Component } from 'react'
 import { graphql } from 'react-relay'
 import BlogPosts from '../components/BlogPosts'
 
@@ -21,7 +21,7 @@ export default class Index extends Component {
     }
   `
 
-  render () {
+  render() {
     return (
       <div>
         <BlogPosts viewer={this.props.viewer} />

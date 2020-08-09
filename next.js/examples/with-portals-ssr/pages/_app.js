@@ -1,5 +1,4 @@
-import React from 'react'
-import App, { Container } from 'next/app'
+import App from 'next/app'
 import { prepareClientPortals } from '@jesstelford/react-portal-universal'
 
 if (typeof window !== 'undefined') {
@@ -10,14 +9,14 @@ if (typeof window !== 'undefined') {
 }
 
 class MyApp extends App {
-  render () {
+  render() {
     const { Component, pageProps } = this.props
     return (
-      <Container>
-        {/* This is where we'll render one of our universal portals */}
-        <div id='modal' />
+      /* This is where we'll render one of our universal portals */
+      <>
+        <div id="modal" />
         <Component {...pageProps} />
-      </Container>
+      </>
     )
   }
 }

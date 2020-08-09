@@ -1,19 +1,18 @@
-import React from 'react'
 import withStyles from 'react-jss'
 
 const styles = {
   container: {
     marginTop: 100,
-    textAlign: 'center'
+    textAlign: 'center',
   },
 
   header: {
     fontSize: 24,
-    lineHeight: 1.25
-  }
+    lineHeight: 1.25,
+  },
 }
 
-function Index (props) {
+function Index(props) {
   return (
     <div className={props.classes.container}>
       <h1 className={props.classes.header}>

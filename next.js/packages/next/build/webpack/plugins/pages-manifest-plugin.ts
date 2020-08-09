@@ -4,7 +4,9 @@ import {
   PAGES_MANIFEST,
   ROUTE_NAME_REGEX,
   SERVERLESS_ROUTE_NAME_REGEX,
-} from 'next-server/constants'
+} from '../../../next-server/lib/constants'
+
+export type PagesManifest = { [page: string]: string }
 
 // This plugin creates a pages-manifest.json from page entrypoints.
 // This is used for mapping paths like `/` to `.next/server/static/<buildid>/pages/index.js` when doing SSR
@@ -17,9 +19,9 @@ export default class PagesManifestPlugin implements Plugin {
   }
 
   apply(compiler: Compiler): void {
-    compiler.hooks.emit.tap('NextJsPagesManifest', compilation => {
+    compiler.hooks.emit.tap('NextJsPagesManifest', (compilation) => {
       const { chunks } = compilation
-      const pages: { [page: string]: string } = {}
+      const pages: PagesManifest = {}
 
       for (const chunk of chunks) {
         const result = (this.serverless

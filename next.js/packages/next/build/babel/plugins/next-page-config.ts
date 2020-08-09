@@ -1,14 +1,10 @@
-import { PluginObj } from '@babel/core'
-import { NodePath } from '@babel/traverse'
-import * as BabelTypes from '@babel/types'
-import { PageConfig } from 'next-server/types'
+import { NodePath, PluginObj, types as BabelTypes } from '@babel/core'
+import { PageConfig } from 'next/types'
 
-const configKeys = new Set(['amp', 'experimentalPrerender'])
-export const inlineGipIdentifier = '__NEXT_GIP_INLINE__'
-export const dropBundleIdentifier = '__NEXT_DROP_CLIENT_FILE__'
+const STRING_LITERAL_DROP_BUNDLE = '__NEXT_DROP_CLIENT_FILE__'
 
-// replace progam path with just a variable with the drop identifier
-function replaceBundle(path: any, t: typeof BabelTypes) {
+// replace program path with just a variable with the drop identifier
+function replaceBundle(path: any, t: typeof BabelTypes): void {
   path.parentPath.replaceWith(
     t.program(
       [
@@ -17,8 +13,8 @@ function replaceBundle(path: any, t: typeof BabelTypes) {
             t.identifier('config'),
             t.assignmentExpression(
               '=',
-              t.identifier(dropBundleIdentifier),
-              t.stringLiteral(`${dropBundleIdentifier} ${Date.now()}`)
+              t.identifier(STRING_LITERAL_DROP_BUNDLE),
+              t.stringLiteral(`${STRING_LITERAL_DROP_BUNDLE} ${Date.now()}`)
             )
           ),
         ]),
@@ -28,11 +24,17 @@ function replaceBundle(path: any, t: typeof BabelTypes) {
   )
 }
 
+function errorMessage(state: any, details: string): string {
+  const pageName =
+    (state.filename || '').split(state.cwd || '').pop() || 'unknown'
+  return `Invalid page config export found. ${details} in file ${pageName}. See: https://err.sh/vercel/next.js/invalid-page-config`
+}
+
 interface ConfigState {
-  setupInlining?: boolean
   bundleDropped?: boolean
 }
 
+// config to parsing pageConfig for client bundles
 export default function nextPageConfig({
   types: t,
 }: {
@@ -48,67 +50,73 @@ export default function nextPageConfig({
                 path: NodePath<BabelTypes.ExportNamedDeclaration>,
                 state: any
               ) {
-                if (
-                  state.bundleDropped ||
-                  !path.node.declaration ||
-                  !(path.node.declaration as any).declarations
-                )
+                if (state.bundleDropped || !path.node.declaration) {
                   return
-                const { declarations } = path.node.declaration as any
+                }
+
+                if (!BabelTypes.isVariableDeclaration(path.node.declaration)) {
+                  return
+                }
+
+                const { declarations } = path.node.declaration
                 const config: PageConfig = {}
 
                 for (const declaration of declarations) {
-                  if (declaration.id.name !== 'config') continue
+                  if (
+                    !BabelTypes.isIdentifier(declaration.id, { name: 'config' })
+                  ) {
+                    continue
+                  }
+
+                  if (!BabelTypes.isObjectExpression(declaration.init)) {
+                    const got = declaration.init
+                      ? declaration.init.type
+                      : 'undefined'
+                    throw new Error(
+                      errorMessage(state, `Expected object but got ${got}`)
+                    )
+                  }
 
                   for (const prop of declaration.init.properties) {
+                    if (BabelTypes.isSpreadElement(prop)) {
+                      throw new Error(
+                        errorMessage(state, `Property spread is not allowed`)
+                      )
+                    }
                     const { name } = prop.key
-                    if (configKeys.has(name)) {
-                      // @ts-ignore
-                      config[name] = prop.value.value
+                    if (BabelTypes.isIdentifier(prop.key, { name: 'amp' })) {
+                      if (!BabelTypes.isObjectProperty(prop)) {
+                        throw new Error(
+                          errorMessage(state, `Invalid property "${name}"`)
+                        )
+                      }
+                      if (
+                        !BabelTypes.isBooleanLiteral(prop.value) &&
+                        !BabelTypes.isStringLiteral(prop.value)
+                      ) {
+                        throw new Error(
+                          errorMessage(state, `Invalid value for "${name}"`)
+                        )
+                      }
+                      config.amp = prop.value.value as PageConfig['amp']
                     }
                   }
                 }
 
                 if (config.amp === true) {
-                  replaceBundle(path, t)
+                  if (!state.file?.opts?.caller.isDev) {
+                    // don't replace bundle in development so HMR can track
+                    // dependencies and trigger reload when they are changed
+                    replaceBundle(path, t)
+                  }
                   state.bundleDropped = true
                   return
-                }
-
-                if (
-                  config.experimentalPrerender === true ||
-                  config.experimentalPrerender === 'inline'
-                ) {
-                  state.setupInlining = true
                 }
               },
             },
             state
           )
         },
-      },
-      // handles Page.getInitialProps = () => {}
-      AssignmentExpression(path, state: ConfigState) {
-        if (!state.setupInlining) return
-        const { property } = (path.node.left || {}) as any
-        const { name } = property
-        if (name !== 'getInitialProps') return
-        // replace the getInitialProps function with an identifier for replacing
-        path.node.right = t.functionExpression(
-          null,
-          [],
-          t.blockStatement([
-            t.returnStatement(t.stringLiteral(inlineGipIdentifier)),
-          ])
-        )
-      },
-      // handles class { static async getInitialProps() {} }
-      FunctionDeclaration(path, state: ConfigState) {
-        if (!state.setupInlining) return
-        if ((path.node.id && path.node.id.name) !== 'getInitialProps') return
-        path.node.body = t.blockStatement([
-          t.returnStatement(t.stringLiteral(inlineGipIdentifier)),
-        ])
       },
     },
   }
