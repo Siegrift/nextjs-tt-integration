@@ -34,6 +34,9 @@ const Head = (props) => {
       data-csp="trusted-types webpack nextjs-client nextjs-router react app-policy"
       src="https://wicg.github.io/trusted-types/dist/es6/trustedtypes.build.js"
     ></script> */}
+      <iframe
+        srcDoc={'<script>alert("iframe srcdoc in head")</script>'}
+      ></iframe>
     </NextHead>
   )
 }
